@@ -1,0 +1,6 @@
+Title,Description,Vendor,Type,SKU,Price,Inventory,Metafield: custom.specifications.brand,Metafield: custom.specifications.model,Metafield: custom.features.color
+Product 1,Product description 1,Vendor A,Electronics,SKU001,99.99,10,Brand A,Model X1,Black
+Product 2,Product description 2,Vendor A,Electronics,SKU002,149.99,5,Brand A,Model X2,Silver
+Product 3,Product description 3,Vendor B,Electronics,SKU003,199.99,15,Brand B,Model Y1,White
+Product 4,Product description 4,Vendor B,Electronics,SKU004,299.99,8,Brand B,Model Y2,Blue
+Product 5,Product description 5,Vendor C,Electronics,SKU005,399.99,20,Brand C,Model Z1,Red

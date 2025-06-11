@@ -1,0 +1,21 @@
+{
+    "metafield": {
+        "namespace": "custom",
+        "key": "product_info",
+        "type": "json",
+        "value": {
+            "specifications": {
+                "brand": "Test Brand",
+                "model": "Test Model",
+                "category": "Test Category"
+            },
+            "features": {
+                "color": "Black",
+                "size": "Medium",
+                "weight": "1.5kg"
+            },
+            "certifications": ["CE", "RoHS"],
+            "warranty": "1 Year Limited"
+        }
+    }
+}

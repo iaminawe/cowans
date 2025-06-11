@@ -1,0 +1,8 @@
+Title,Description,Vendor,Type,SKU,Price,Inventory,Metafield: custom.specifications.brand,Metafield: custom.specifications.model,Metafield: custom.features.color
+Test Large 1,Extended product description for scalability testing 1,Vendor X,Electronics,SKUL001,199.99,50,Brand X,Model XL1,Black
+Test Large 2,Extended product description for scalability testing 2,Vendor X,Electronics,SKUL002,299.99,30,Brand X,Model XL2,Silver
+Test Large 3,Extended product description for scalability testing 3,Vendor Y,Electronics,SKUL003,399.99,25,Brand Y,Model YL1,White
+Test Large 4,Extended product description for scalability testing 4,Vendor Y,Electronics,SKUL004,499.99,40,Brand Y,Model YL2,Blue
+Test Large 5,Extended product description for scalability testing 5,Vendor Z,Electronics,SKUL005,599.99,35,Brand Z,Model ZL1,Red
+Test Large 6,Extended product description for scalability testing 6,Vendor Z,Electronics,SKUL006,699.99,45,Brand Z,Model ZL2,Green
+Test Large 7,Extended product description for scalability testing 7,Vendor X,Electronics,SKUL007,799.99,20,Brand X,Model XL3,Gold

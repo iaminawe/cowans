@@ -1,0 +1,18 @@
+{
+    "product": {
+        "title": "Test Product",
+        "body_html": "<strong>Test product description</strong>",
+        "vendor": "Test Vendor",
+        "product_type": "Test Type",
+        "status": "draft",
+        "variants": [
+            {
+                "title": "Default Title",
+                "price": "0.00",
+                "sku": "TEST-SKU",
+                "inventory_quantity": 0
+            }
+        ],
+        "metafields": []
+    }
+}
