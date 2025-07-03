@@ -82,6 +82,15 @@ except:
 # Initialize Job Manager
 job_manager = JobManager(redis_client) if redis_client else None
 
+# Initialize database
+try:
+    app.logger.info("Backend startup")
+    init_database(create_tables=True)
+    app.logger.info("Database initialized successfully")
+except Exception as e:
+    app.logger.error(f"Failed to initialize database: {e}")
+    # Continue anyway for development
+
 # Initialize Icon Generation Service (global instance)
 icon_service = None
 
