@@ -1,0 +1,99 @@
+"""Add API keys table for external integrations
+
+Revision ID: 002
+Revises: 001
+Create Date: 2025-01-03
+
+This is an example migration showing how to add a new table for API key management.
+To use this migration, remove the .example extension and run: alembic upgrade head
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy import text
+
+
+# revision identifiers, used by Alembic.
+revision = '002'
+down_revision = '001'
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    """Add API keys table and related indexes."""
+    
+    # Create api_keys table
+    op.create_table('api_keys',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('key', sa.String(length=64), nullable=False),
+        sa.Column('name', sa.String(length=255), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('permissions', sa.JSON(), nullable=True),
+        sa.Column('rate_limit', sa.Integer(), nullable=True, server_default='1000'),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='1'),
+        sa.Column('last_used_at', sa.DateTime(), nullable=True),
+        sa.Column('expires_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('key')
+    )
+    
+    # Create indexes
+    op.create_index('idx_api_key', 'api_keys', ['key'], unique=True)
+    op.create_index('idx_api_key_user', 'api_keys', ['user_id'], unique=False)
+    op.create_index('idx_api_key_active', 'api_keys', ['is_active'], unique=False)
+    
+    # Create api_key_logs table for usage tracking
+    op.create_table('api_key_logs',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('api_key_id', sa.Integer(), nullable=False),
+        sa.Column('endpoint', sa.String(length=255), nullable=False),
+        sa.Column('method', sa.String(length=10), nullable=False),
+        sa.Column('status_code', sa.Integer(), nullable=True),
+        sa.Column('ip_address', sa.String(length=45), nullable=True),
+        sa.Column('user_agent', sa.String(length=500), nullable=True),
+        sa.Column('request_data', sa.JSON(), nullable=True),
+        sa.Column('response_time', sa.Float(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(['api_key_id'], ['api_keys.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    # Create indexes for logs
+    op.create_index('idx_api_log_key', 'api_key_logs', ['api_key_id'], unique=False)
+    op.create_index('idx_api_log_created', 'api_key_logs', ['created_at'], unique=False)
+    
+    # Add column to users table for API key quota
+    op.add_column('users', sa.Column('api_key_quota', sa.Integer(), nullable=True, server_default='5'))
+    
+    # Create a default configuration for API settings
+    conn = op.get_bind()
+    conn.execute(
+        text("""
+        INSERT INTO configurations (key, value, category, description, data_type)
+        VALUES 
+        ('api.key_length', '32', 'api', 'Length of generated API keys', 'integer'),
+        ('api.max_keys_per_user', '5', 'api', 'Maximum API keys per user', 'integer'),
+        ('api.default_rate_limit', '1000', 'api', 'Default rate limit per hour', 'integer')
+        """)
+    )
+
+
+def downgrade() -> None:
+    """Remove API keys functionality."""
+    
+    # Remove column from users table
+    op.drop_column('users', 'api_key_quota')
+    
+    # Drop tables
+    op.drop_table('api_key_logs')
+    op.drop_table('api_keys')
+    
+    # Remove configurations
+    conn = op.get_bind()
+    conn.execute(
+        text("DELETE FROM configurations WHERE category = 'api'")
+    )
