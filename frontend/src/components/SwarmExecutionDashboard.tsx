@@ -1,0 +1,682 @@
+import React, { useState, useEffect } from 'react';
+import { cn } from "@/lib/utils";
+import { DashboardLayout, DashboardCard, DashboardGrid } from './DashboardLayout';
+import { APIStatusIndicator, APIEndpoint } from './APIStatusIndicator';
+import { BatchIconGenerationForm, IconGenerationConfig, CategoryData } from './BatchIconGenerationForm';
+import { IconPreviewGrid, GeneratedIcon } from './IconPreviewGrid';
+import { CategoryManagementPanel, Category } from './CategoryManagementPanel';
+import { BatchProgressTracker, BatchOperation, BatchStage } from './BatchProgressTracker';
+import { ShopifyCollectionManager } from './ShopifyCollectionManager';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Zap, 
+  Image, 
+  FolderTree, 
+  Activity, 
+  Settings,
+  Download,
+  Upload,
+  RefreshCw,
+  CheckCircle2
+} from 'lucide-react';
+import { shopifyApi, ShopifyCollection } from '@/lib/shopifyApi';
+import { IconPreviewModal } from './IconPreviewModal';
+
+interface SwarmExecutionDashboardProps {
+  className?: string;
+}
+
+// Mock data for demonstration
+const mockAPIEndpoints: APIEndpoint[] = [
+  {
+    id: 'openai',
+    name: 'OpenAI API',
+    url: 'https://api.openai.com/v1',
+    status: 'connected',
+    lastChecked: new Date().toISOString(),
+    responseTime: 245,
+    rateLimitRemaining: 4500,
+    rateLimitReset: new Date(Date.now() + 3600000).toISOString()
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic API',
+    url: 'https://api.anthropic.com/v1',
+    status: 'connected',
+    lastChecked: new Date().toISOString(),
+    responseTime: 189,
+    rateLimitRemaining: 8900,
+    rateLimitReset: new Date(Date.now() + 3600000).toISOString()
+  },
+  {
+    id: 'stability',
+    name: 'Stability AI',
+    url: 'https://api.stability.ai/v1',
+    status: 'error',
+    lastChecked: new Date().toISOString(),
+    errorMessage: 'Rate limit exceeded',
+    rateLimitRemaining: 0,
+    rateLimitReset: new Date(Date.now() + 1800000).toISOString()
+  }
+];
+
+const mockCategories: CategoryData[] = [
+  { id: '1', name: 'Office Supplies', keywords: ['pen', 'paper', 'desk', 'office'] },
+  { id: '2', name: 'Technology', keywords: ['computer', 'laptop', 'phone', 'electronic'] },
+  { id: '3', name: 'Furniture', keywords: ['chair', 'table', 'desk', 'cabinet'] },
+  { id: '4', name: 'Art Supplies', keywords: ['paint', 'brush', 'canvas', 'art'] },
+  { id: '5', name: 'Books & Media', keywords: ['book', 'magazine', 'cd', 'dvd'] }
+];
+
+const mockGeneratedIcons: GeneratedIcon[] = [
+  {
+    id: '1',
+    categoryId: '1',
+    categoryName: 'Office Supplies',
+    name: 'office-pen',
+    style: 'filled',
+    size: '24',
+    format: 'svg',
+    imageUrl: '/api/placeholder/48/48',
+    thumbnailUrl: '/api/placeholder/24/24',
+    generatedAt: new Date().toISOString(),
+    tags: ['pen', 'office', 'writing'],
+    colorScheme: 'monochrome',
+    isFavorite: false
+  },
+  {
+    id: '2',
+    categoryId: '2',
+    categoryName: 'Technology',
+    name: 'laptop-computer',
+    style: 'outlined',
+    size: '24',
+    format: 'svg',
+    imageUrl: '/api/placeholder/48/48',
+    thumbnailUrl: '/api/placeholder/24/24',
+    generatedAt: new Date().toISOString(),
+    tags: ['laptop', 'computer', 'tech'],
+    colorScheme: 'brand',
+    isFavorite: true
+  }
+];
+
+export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardProps) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'generate' | 'icons' | 'categories' | 'shopify'>('overview');
+  const [apiEndpoints, setApiEndpoints] = useState<APIEndpoint[]>(mockAPIEndpoints);
+  const [categories, setCategories] = useState<CategoryData[]>(mockCategories);
+  const [generatedIcons, setGeneratedIcons] = useState<GeneratedIcon[]>(mockGeneratedIcons);
+  const [selectedIcons, setSelectedIcons] = useState<string[]>([]);
+  const [currentOperation, setCurrentOperation] = useState<BatchOperation | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [shopifyCollections, setShopifyCollections] = useState<ShopifyCollection[]>([]);
+
+  // Simulate batch operation
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Preview modal state
+  const [previewIcon, setPreviewIcon] = useState<GeneratedIcon | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // Load Shopify collections on mount
+  useEffect(() => {
+    loadShopifyCollections();
+  }, []);
+
+  const loadShopifyCollections = async () => {
+    try {
+      const data = await shopifyApi.getCollections();
+      setShopifyCollections(data.collections);
+      
+      // Convert Shopify collections to categories for the generator
+      const shopifyCategories: CategoryData[] = data.collections.map(collection => ({
+        id: collection.id,
+        name: collection.title,
+        description: collection.description,
+        keywords: [] // Could extract from description or metafields
+      }));
+      
+      // Merge with existing categories or replace
+      setCategories(prevCategories => {
+        // Remove duplicates based on name
+        const existingNames = new Set(prevCategories.map(c => c.name.toLowerCase()));
+        const newCategories = shopifyCategories.filter(c => !existingNames.has(c.name.toLowerCase()));
+        return [...prevCategories, ...newCategories];
+      });
+    } catch (error) {
+      console.error('Failed to load Shopify collections:', error);
+    }
+  };
+
+  const handleAPIRefresh = (endpointId?: string) => {
+    setApiEndpoints(prev => prev.map(endpoint => {
+      if (!endpointId || endpoint.id === endpointId) {
+        return {
+          ...endpoint,
+          status: 'checking',
+          lastChecked: new Date().toISOString()
+        };
+      }
+      return endpoint;
+    }));
+
+    // Simulate API check
+    setTimeout(() => {
+      setApiEndpoints(prev => prev.map(endpoint => {
+        if (!endpointId || endpoint.id === endpointId) {
+          return {
+            ...endpoint,
+            status: Math.random() > 0.2 ? 'connected' : 'error',
+            responseTime: Math.floor(Math.random() * 500) + 100,
+            lastChecked: new Date().toISOString()
+          };
+        }
+        return endpoint;
+      }));
+    }, 2000);
+  };
+
+  const handleIconGeneration = async (categoryIds: string[], config: IconGenerationConfig) => {
+    setIsGenerating(true);
+    
+    // Create initial batch operation
+    const operation: BatchOperation = {
+      id: 'icon-generation-' + Date.now(),
+      name: 'Icon Generation',
+      description: `Generating icons for ${categoryIds.length} categories`,
+      status: 'running',
+      stages: [
+        {
+          id: 'prepare',
+          name: 'Preparing',
+          status: 'completed',
+          progress: 100,
+          startTime: new Date().toISOString(),
+          endTime: new Date().toISOString(),
+          duration: 1
+        },
+        {
+          id: 'generate',
+          name: 'Generating Icons',
+          status: 'running',
+          progress: 0,
+          currentItem: 'Starting generation...',
+          totalItems: categoryIds.length,
+          completedItems: 0,
+          startTime: new Date().toISOString(),
+          estimatedTimeRemaining: categoryIds.length * 25 // Estimate 25 seconds per icon
+        },
+        {
+          id: 'optimize',
+          name: 'Optimizing',
+          status: 'pending',
+          progress: 0
+        },
+        {
+          id: 'save',
+          name: 'Saving Icons',
+          status: 'pending',
+          progress: 0
+        }
+      ],
+      totalProgress: 10,
+      startTime: new Date().toISOString(),
+      estimatedTimeRemaining: categoryIds.length * 25,
+      itemsProcessed: 0,
+      totalItems: categoryIds.length,
+      successfulItems: 0,
+      failedItems: 0,
+      canPause: false,
+      canCancel: true
+    };
+
+    setCurrentOperation(operation);
+
+    // Process each category one by one
+    let completed = 0;
+    let failed = 0;
+    
+    for (let i = 0; i < categoryIds.length; i++) {
+      const categoryId = categoryIds[i];
+      const category = categories.find(c => c.id === categoryId);
+      if (!category) continue;
+      
+      // Update progress
+      const progress = Math.round(((i + 0.5) / categoryIds.length) * 100);
+      setCurrentOperation(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          totalProgress: progress,
+          itemsProcessed: i,
+          stages: prev.stages.map(stage => {
+            if (stage.id === 'generate' && stage.status === 'running') {
+              return {
+                ...stage,
+                progress: progress,
+                currentItem: `Generating icon for ${category.name}...`,
+                completedItems: i
+              };
+            }
+            return stage;
+          })
+        };
+      });
+      
+      try {
+        // Call the actual API to generate icon
+        const response = await fetch('http://localhost:3560/api/icons/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            category_id: parseInt(categoryId.replace(/\D/g, '')) || 999,
+            category_name: category.name,
+            style: (['modern', 'flat', 'outlined', 'minimal'].includes(config.style) ? config.style : 'modern'),
+            color: config.foregroundColor || '#3B82F6',
+            size: Math.min(512, Math.max(32, parseInt(config.size) || 128)),
+            background: config.backgroundColor === 'transparent' ? 'transparent' : 'white'
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          completed++;
+          
+          // Add the generated icon to the list
+          const numericId = parseInt(categoryId.replace(/\D/g, '')) || 999;
+          const iconUrl = `http://localhost:3560/api/icons/categories/${numericId}/icon`;
+          const newIcon: GeneratedIcon = {
+            id: result.icon.id,
+            categoryId: categoryId,
+            categoryName: category.name,
+            name: category.name + ' Icon',
+            imageUrl: iconUrl,
+            thumbnailUrl: iconUrl,
+            format: 'png',
+            size: config.size || '128',
+            style: config.style || 'modern',
+            generatedAt: result.icon.created_at,
+            tags: category.keywords || [],
+            colorScheme: config.colorScheme || 'brand',
+            isFavorite: false
+          };
+          
+          setGeneratedIcons(prev => [...prev, newIcon]);
+        } else {
+          failed++;
+          const errorData = await response.json();
+          console.error('Failed to generate icon for', category.name, '- Error:', errorData);
+        }
+      } catch (error) {
+        failed++;
+        console.error('Error generating icon:', error);
+      }
+    }
+    
+    // Final update
+    setCurrentOperation(prev => prev ? {
+      ...prev,
+      status: 'completed',
+      totalProgress: 100,
+      endTime: new Date().toISOString(),
+      itemsProcessed: categoryIds.length,
+      successfulItems: completed,
+      failedItems: failed,
+      stages: prev.stages.map(stage => ({
+        ...stage,
+        status: 'completed',
+        progress: 100,
+        endTime: new Date().toISOString()
+      }))
+    } : null);
+    
+    setIsGenerating(false);
+  };
+
+  const handleIconSelect = (iconId: string, selected: boolean) => {
+    setSelectedIcons(prev => 
+      selected 
+        ? [...prev, iconId]
+        : prev.filter(id => id !== iconId)
+    );
+  };
+
+  const connectedAPIs = apiEndpoints.filter(api => api.status === 'connected').length;
+  const totalAPIs = apiEndpoints.length;
+
+  return (
+    <DashboardLayout className={className}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">SWARM Execution Dashboard</h1>
+            <p className="text-muted-foreground">
+              AI-powered batch icon generation and category management
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Activity className="h-3 w-3" />
+              {connectedAPIs}/{totalAPIs} APIs Connected
+            </Badge>
+            <Button variant="outline" onClick={() => handleAPIRefresh()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Status
+            </Button>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="generate" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              Generate Icons
+            </TabsTrigger>
+            <TabsTrigger value="icons" className="flex items-center gap-2">
+              <Image className="h-4 w-4" />
+              Icon Library
+              <Badge variant="secondary">{generatedIcons.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="flex items-center gap-2">
+              <FolderTree className="h-4 w-4" />
+              Categories
+              <Badge variant="secondary">{categories.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="shopify" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Shopify
+              <Badge variant="secondary">{shopifyCollections.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <DashboardGrid columns={2}>
+              {/* API Status */}
+              <APIStatusIndicator
+                endpoints={apiEndpoints}
+                onRefresh={handleAPIRefresh}
+                onConfigure={(id) => console.log('Configure API:', id)}
+              />
+
+              {/* Quick Stats */}
+              <DashboardCard
+                title="System Overview"
+                description="Current status and quick statistics"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <div className="text-2xl font-bold text-primary">{generatedIcons.length}</div>
+                    <div className="text-sm text-muted-foreground">Generated Icons</div>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <div className="text-2xl font-bold text-primary">{categories.length}</div>
+                    <div className="text-sm text-muted-foreground">Categories</div>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <div className="text-2xl font-bold text-green-600">{connectedAPIs}</div>
+                    <div className="text-sm text-muted-foreground">Connected APIs</div>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {Math.round((generatedIcons.filter(i => i.isFavorite).length / generatedIcons.length) * 100) || 0}%
+                    </div>
+                    <div className="text-sm text-muted-foreground">Favorite Rate</div>
+                  </div>
+                </div>
+              </DashboardCard>
+            </DashboardGrid>
+
+            {/* Active Operation */}
+            {currentOperation && (
+              <BatchProgressTracker
+                operation={currentOperation}
+                onPause={() => console.log('Pause operation')}
+                onResume={() => console.log('Resume operation')}
+                onCancel={() => setCurrentOperation(null)}
+              />
+            )}
+
+            {/* Recent Activity */}
+            <DashboardCard
+              title="Recent Activity"
+              description="Latest icon generation and system events"
+            >
+              <div className="space-y-3">
+                {generatedIcons.slice(0, 5).map((icon) => (
+                  <div key={icon.id} className="flex items-center gap-3 p-2 rounded border">
+                    <img 
+                      src={icon.thumbnailUrl} 
+                      alt={icon.name}
+                      className="w-8 h-8 rounded border"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{icon.name}</div>
+                      <div className="text-xs text-muted-foreground">{icon.categoryName}</div>
+                    </div>
+                    <Badge variant="outline" className="text-xs">{icon.style}</Badge>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(icon.generatedAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </DashboardCard>
+          </TabsContent>
+
+          {/* Generate Tab */}
+          <TabsContent value="generate" className="space-y-6">
+            <BatchIconGenerationForm
+              categories={categories}
+              onGenerate={handleIconGeneration}
+              isGenerating={isGenerating}
+              progress={currentOperation?.totalProgress || 0}
+              generatedCount={currentOperation?.itemsProcessed || 0}
+              totalCount={currentOperation?.totalItems || 0}
+            />
+
+            {currentOperation && (
+              <BatchProgressTracker
+                operation={currentOperation}
+                onPause={() => console.log('Pause')}
+                onResume={() => console.log('Resume')}
+                onCancel={() => setCurrentOperation(null)}
+                showDetails={true}
+              />
+            )}
+          </TabsContent>
+
+          {/* Icons Tab */}
+          <TabsContent value="icons" className="space-y-6">
+            <IconPreviewGrid
+              icons={generatedIcons}
+              selectedIcons={selectedIcons}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onIconSelect={handleIconSelect}
+              onIconFavorite={(iconId, favorite) => {
+                setGeneratedIcons(prev => prev.map(icon =>
+                  icon.id === iconId ? { ...icon, isFavorite: favorite } : icon
+                ));
+              }}
+              onIconDelete={(iconId) => {
+                setGeneratedIcons(prev => prev.filter(icon => icon.id !== iconId));
+              }}
+              onIconDownload={(iconId) => console.log('Download icon:', iconId)}
+              onBulkDownload={(iconIds) => console.log('Bulk download:', iconIds)}
+              onBulkDelete={(iconIds) => {
+                setGeneratedIcons(prev => prev.filter(icon => !iconIds.includes(icon.id)));
+                setSelectedIcons([]);
+              }}
+              onPreview={(icon) => {
+                setPreviewIcon(icon);
+                setIsPreviewOpen(true);
+              }}
+            />
+          </TabsContent>
+
+          {/* Categories Tab */}
+          <TabsContent value="categories" className="space-y-6">
+            <CategoryManagementPanel
+              categories={categories.map(cat => ({ ...cat, level: 0 }))}
+              availableIcons={generatedIcons}
+              onCategoryCreate={(parentId, name, description) => {
+                const newCategory: CategoryData = {
+                  id: Date.now().toString(),
+                  name,
+                  description,
+                  keywords: []
+                };
+                setCategories(prev => [...prev, newCategory]);
+              }}
+              onCategoryUpdate={(categoryId, updates) => {
+                setCategories(prev => prev.map(cat =>
+                  cat.id === categoryId ? { ...cat, ...updates } : cat
+                ));
+              }}
+              onCategoryDelete={(categoryId) => {
+                setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+              }}
+              onIconAssign={(categoryId, iconId) => {
+                console.log('Assign icon:', iconId, 'to category:', categoryId);
+              }}
+              onIconUnassign={(categoryId) => {
+                console.log('Unassign icon from category:', categoryId);
+              }}
+              onCategoriesExport={() => console.log('Export categories')}
+            />
+          </TabsContent>
+
+          {/* Shopify Tab */}
+          <TabsContent value="shopify" className="space-y-6">
+            <ShopifyCollectionManager
+              onGenerateIcon={(collection) => {
+                // Convert Shopify collection to category and trigger generation
+                const category: CategoryData = {
+                  id: collection.id,
+                  name: collection.title,
+                  description: collection.description,
+                  keywords: []
+                };
+                
+                // Trigger single icon generation
+                handleIconGeneration([category.id], {
+                  style: 'modern',
+                  colorScheme: 'brand',
+                  size: '128',
+                  format: 'png',
+                  backgroundColor: '#ffffff',
+                  foregroundColor: '#3B82F6',
+                  theme: 'light',
+                  includeVariants: false,
+                  batchSize: 1,
+                  model: 'gpt-image-1'
+                });
+              }}
+              onSyncIcon={(collectionId, iconPath) => {
+                // Handle syncing a local icon to Shopify
+                console.log('Sync icon to Shopify collection:', collectionId, iconPath);
+              }}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Icon Preview Modal */}
+      <IconPreviewModal
+        icon={previewIcon}
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewIcon(null);
+        }}
+        onDownload={(iconId) => {
+          console.log('Download icon:', iconId);
+          // Implement actual download logic here
+          const icon = generatedIcons.find(i => i.id === iconId);
+          if (icon) {
+            window.open(icon.imageUrl, '_blank');
+          }
+        }}
+        onFavorite={(iconId, favorite) => {
+          setGeneratedIcons(prev => prev.map(icon =>
+            icon.id === iconId ? { ...icon, isFavorite: favorite } : icon
+          ));
+          // Update the preview icon if it's the same one
+          if (previewIcon?.id === iconId) {
+            setPreviewIcon(prev => prev ? { ...prev, isFavorite: favorite } : null);
+          }
+        }}
+        onRegenerate={async (iconId, style) => {
+          // Find the icon to regenerate
+          const icon = generatedIcons.find(i => i.id === iconId);
+          if (!icon) return;
+          
+          // Update UI to show regenerating state
+          setIsRegenerating(true);
+          
+          try {
+            // Call the API to regenerate the icon
+            const response = await fetch('http://localhost:3560/api/icons/generate', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                category_id: parseInt(icon.categoryId.replace(/\D/g, '')) || 999,
+                category_name: icon.categoryName,
+                style: style,
+                color: '#3B82F6', // Use default or extract from current icon
+                size: parseInt(icon.size) || 128,
+                background: 'white'
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              
+              // Update the icon in the list with new data
+              const updatedIcon: GeneratedIcon = {
+                ...icon,
+                style: style,
+                generatedAt: new Date().toISOString(),
+                // Force refresh the image URL by adding timestamp
+                imageUrl: `${icon.imageUrl}?t=${Date.now()}`
+              };
+              
+              setGeneratedIcons(prev => prev.map(i =>
+                i.id === iconId ? updatedIcon : i
+              ));
+              
+              // Update preview if it's the same icon
+              if (previewIcon?.id === iconId) {
+                setPreviewIcon(updatedIcon);
+              }
+            } else {
+              console.error('Failed to regenerate icon');
+              // Could add toast notification here
+            }
+          } catch (error) {
+            console.error('Error regenerating icon:', error);
+            // Could add toast notification here
+          } finally {
+            setIsRegenerating(false);
+          }
+        }}
+        isRegenerating={isRegenerating}
+      />
+    </DashboardLayout>
+  );
+}
