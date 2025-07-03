@@ -138,9 +138,8 @@ if [ ! -f "$DB_FILE" ] || [ ! -s "$DB_FILE" ]; then
     
     # Create database schema
     python -c "
-from database import init_db
-from models import Base
-init_db()
+from database import init_database
+init_database(create_tables=True)
 print('Database tables created successfully')
 "
     
@@ -162,23 +161,28 @@ print('Database tables created successfully')
         # Create default admin user
         print_status "Creating default admin user..."
         python -c "
-from database import get_db_session
+from database import db_session_scope
 from models import User
 from werkzeug.security import generate_password_hash
 
-with get_db_session() as session:
-    admin = User(
-        email='admin@cowans.com',
-        username='admin',
-        password_hash=generate_password_hash('admin123'),
-        is_admin=True,
-        is_active=True
-    )
-    session.add(admin)
-    session.commit()
-    print('Default admin user created')
-    print('Email: admin@cowans.com')
-    print('Password: admin123')
+with db_session_scope() as session:
+    # Check if admin already exists
+    existing = session.query(User).filter_by(email='admin@cowans.com').first()
+    if not existing:
+        admin = User(
+            email='admin@cowans.com',
+            username='admin',
+            password_hash=generate_password_hash('admin123'),
+            is_admin=True,
+            is_active=True
+        )
+        session.add(admin)
+        session.commit()
+        print('Default admin user created')
+        print('Email: admin@cowans.com')
+        print('Password: admin123')
+    else:
+        print('Admin user already exists')
 "
     fi
 else
@@ -188,7 +192,8 @@ else
     print_status "Running database health check..."
     python -c "
 from db_utils import DatabaseHealthChecker
-from database import engine
+from database import get_engine
+engine = get_engine()
 checker = DatabaseHealthChecker(engine)
 report = checker.run_health_check()
 if report['status'] == 'healthy':
