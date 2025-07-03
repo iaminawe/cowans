@@ -211,8 +211,12 @@ fi
 print_status "Starting backend server on port $BACKEND_PORT..."
 export FLASK_ENV=development
 export DATABASE_URL="sqlite:///$DB_FILE"
-python app.py > "$LOG_DIR/backend.log" 2>&1 &
+cd "$BACKEND_DIR"
+python app.py > "../$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
+
+# Return to root directory
+cd ../..
 
 # Wait for backend to start
 print_status "Waiting for backend to start..."
