@@ -15,9 +15,7 @@ import json
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from database import DatabaseManager, DatabaseUtils
-from migrations import MigrationManager
-from config import Config
+from database import DatabaseUtils, init_database as initialize_db, get_engine
 from db_utils import (
     DatabaseBackupManager, 
     DatabaseImportExport, 
@@ -25,6 +23,7 @@ from db_utils import (
     DatabaseMaintenanceUtils
 )
 from seed_data import DevelopmentDataSeeder, CategorySeeder, ProductSeeder, UserSeeder
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -36,8 +35,10 @@ logger = logging.getLogger(__name__)
 
 def get_database_url():
     """Get database URL from configuration."""
-    if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
-        return Config.DATABASE_URL
+    # Check environment variable first
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url:
+        return db_url
     
     # Default to SQLite database
     db_path = os.path.join(os.path.dirname(__file__), 'database.db')
@@ -47,13 +48,12 @@ def get_database_url():
 def init_database(args):
     """Initialize database."""
     try:
-        db_url = get_database_url()
-        logger.info(f"Initializing database: {db_url}")
+        logger.info("Initializing database...")
         
-        db_manager = DatabaseManager(db_url)
-        db_manager.initialize(create_tables=True)
+        # Use the init_database function from database module
+        initialize_db(create_tables=True)
         
-        # Seed initial data using the manager
+        # Seed initial data
         DatabaseUtils.seed_initial_data()
         
         logger.info("Database initialized successfully")
@@ -64,102 +64,30 @@ def init_database(args):
 
 
 def create_migration(args):
-    """Create a new migration."""
-    try:
-        db_url = get_database_url()
-        migration_manager = MigrationManager(db_url)
-        
-        # Generate version number
-        version = args.version
-        if not version:
-            # Auto-generate version based on timestamp
-            version = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        filepath = migration_manager.create_migration_template(version, args.description)
-        logger.info(f"Created migration: {filepath}")
-        
-    except Exception as e:
-        logger.error(f"Failed to create migration: {e}")
-        sys.exit(1)
+    """Create a new migration using Alembic."""
+    logger.info("Please use 'alembic revision --autogenerate -m \"description\"' to create migrations")
+    logger.info("This command should be run from the backend directory where alembic.ini is located")
 
 
 def migrate_up(args):
     """Run migrations up."""
-    try:
-        db_url = get_database_url()
-        migration_manager = MigrationManager(db_url)
-        
-        success = migration_manager.migrate_up(
-            target_version=args.target,
-            applied_by=args.applied_by or 'cli'
-        )
-        
-        if success:
-            logger.info("Migrations applied successfully")
-        else:
-            logger.error("Failed to apply migrations")
-            sys.exit(1)
-            
-    except Exception as e:
-        logger.error(f"Failed to run migrations: {e}")
-        sys.exit(1)
+    logger.info("Please use 'alembic upgrade head' to apply all migrations")
+    logger.info("Or 'alembic upgrade +1' to apply the next migration")
+    logger.info("This command should be run from the backend directory where alembic.ini is located")
 
 
 def migrate_down(args):
     """Run migrations down."""
-    try:
-        db_url = get_database_url()
-        migration_manager = MigrationManager(db_url)
-        
-        if not args.target:
-            logger.error("Target version is required for rollback")
-            sys.exit(1)
-        
-        success = migration_manager.migrate_down(
-            target_version=args.target,
-            rolled_back_by=args.rolled_back_by or 'cli'
-        )
-        
-        if success:
-            logger.info("Migrations rolled back successfully")
-        else:
-            logger.error("Failed to rollback migrations")
-            sys.exit(1)
-            
-    except Exception as e:
-        logger.error(f"Failed to rollback migrations: {e}")
-        sys.exit(1)
+    logger.info("Please use 'alembic downgrade -1' to rollback one migration")
+    logger.info("Or 'alembic downgrade <revision>' to rollback to a specific revision")
+    logger.info("This command should be run from the backend directory where alembic.ini is located")
 
 
 def migration_status(args):
     """Show migration status."""
-    try:
-        db_url = get_database_url()
-        migration_manager = MigrationManager(db_url)
-        
-        status = migration_manager.get_migration_status()
-        
-        if 'error' in status:
-            logger.error(f"Error getting migration status: {status['error']}")
-            return
-        
-        print("\n=== Migration Status ===")
-        print(f"Total migrations: {status['total_migrations']}")
-        print(f"Applied migrations: {status['applied_migrations']}")
-        print(f"Pending migrations: {status['pending_migrations']}")
-        print(f"Current version: {status['current_version']}")
-        
-        if status['applied_versions']:
-            print(f"\nApplied versions: {', '.join(status['applied_versions'])}")
-        
-        if status['pending_versions']:
-            print(f"Pending versions: {', '.join(status['pending_versions'])}")
-        
-        print()
-        
-    except Exception as e:
-        logger.error(f"Failed to get migration status: {e}")
-        sys.exit(1)
+    logger.info("Please use 'alembic current' to see the current migration")
+    logger.info("Or 'alembic history' to see all migrations")
+    logger.info("This command should be run from the backend directory where alembic.ini is located")
 
 
 def create_admin_user(args):
@@ -301,7 +229,9 @@ def seed_data(args):
 def health_check(args):
     """Run database health check."""
     try:
-        report = DatabaseHealthChecker.run_health_check()
+        engine = get_engine()
+        checker = DatabaseHealthChecker(engine)
+        report = checker.run_health_check()
         
         print("\n=== Database Health Report ===")
         print(f"Timestamp: {report['timestamp']}")
