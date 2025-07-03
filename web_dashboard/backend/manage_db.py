@@ -93,6 +93,10 @@ def migration_status(args):
 def create_admin_user(args):
     """Create admin user."""
     try:
+        # Ensure database is initialized
+        if not db_manager.engine:
+            initialize_db()
+            
         success = DatabaseUtils.create_admin_user(
             email=args.email,
             password=args.password,
@@ -114,18 +118,18 @@ def create_admin_user(args):
 def backup_database(args):
     """Backup database."""
     try:
-        db_url = get_database_url()
-        db_manager = DatabaseManager(db_url)
+        # Ensure database is initialized
+        if not db_manager.engine:
+            initialize_db()
         
-        backup_path = args.backup_path
-        if not backup_path:
-            # Generate backup filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = f"backup_{timestamp}.db"
+        backup_manager = DatabaseBackupManager()
         
-        success = db_manager.backup_database(backup_path)
+        # Create backup with optional description
+        backup_path = backup_manager.create_backup(
+            description=args.description or "Manual backup via CLI"
+        )
         
-        if success:
+        if backup_path:
             logger.info(f"Database backup created: {backup_path}")
         else:
             logger.error("Failed to create database backup")
@@ -139,13 +143,14 @@ def backup_database(args):
 def restore_database(args):
     """Restore database."""
     try:
-        db_url = get_database_url()
-        db_manager = DatabaseManager(db_url)
+        backup_manager = DatabaseBackupManager()
         
-        success = db_manager.restore_database(args.backup_path)
+        success = backup_manager.restore_backup(args.backup_path)
         
         if success:
             logger.info(f"Database restored from: {args.backup_path}")
+            # Re-initialize database after restore
+            initialize_db()
         else:
             logger.error("Failed to restore database")
             sys.exit(1)
@@ -190,6 +195,10 @@ def database_info(args):
 def optimize_database(args):
     """Optimize database."""
     try:
+        # Ensure database is initialized
+        if not db_manager.engine:
+            initialize_db()
+            
         success = DatabaseMaintenanceUtils.optimize_database()
         if success:
             logger.info("Database optimization completed")
@@ -205,6 +214,11 @@ def optimize_database(args):
 def seed_data(args):
     """Seed development data."""
     try:
+        # Ensure database is initialized
+        if not db_manager.engine:
+            logger.info("Initializing database before seeding...")
+            initialize_db()
+        
         if args.type == 'all':
             results = DevelopmentDataSeeder.seed_all(include_large_dataset=args.large)
             print(f"\nSeeding results: {json.dumps(results, indent=2)}")
