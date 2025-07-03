@@ -15,7 +15,7 @@ import json
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from database import DatabaseUtils, init_database as initialize_db, get_engine
+from database import DatabaseUtils, init_database as initialize_db, db_manager
 from db_utils import (
     DatabaseBackupManager, 
     DatabaseImportExport, 
@@ -229,8 +229,11 @@ def seed_data(args):
 def health_check(args):
     """Run database health check."""
     try:
-        engine = get_engine()
-        checker = DatabaseHealthChecker(engine)
+        # Ensure database is initialized
+        if not db_manager.engine:
+            initialize_db()
+        
+        checker = DatabaseHealthChecker(db_manager.engine)
         report = checker.run_health_check()
         
         print("\n=== Database Health Report ===")

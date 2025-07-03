@@ -192,9 +192,13 @@ else
     print_status "Running database health check..."
     python -c "
 from db_utils import DatabaseHealthChecker
-from database import get_engine
-engine = get_engine()
-checker = DatabaseHealthChecker(engine)
+from database import db_manager, init_database
+
+# Ensure database is initialized
+if not db_manager.engine:
+    init_database()
+
+checker = DatabaseHealthChecker(db_manager.engine)
 report = checker.run_health_check()
 if report['status'] == 'healthy':
     print('✓ Database is healthy')
