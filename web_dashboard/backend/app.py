@@ -141,6 +141,18 @@ def dev_get_jwt_identity():
 
 get_jwt_identity = dev_get_jwt_identity
 
+def get_user_id():
+    """Helper function to get numeric user ID, handling dev mode."""
+    jwt_identity = get_jwt_identity()
+    if jwt_identity == "dev-user":
+        # In development mode, use a dummy user ID
+        return None  # Allow NULL for dev mode
+    else:
+        try:
+            return int(jwt_identity)
+        except (ValueError, TypeError):
+            return None
+
 # Setup logging
 def setup_logging():
     """Configure application logging."""
@@ -374,7 +386,7 @@ def get_job_logs(job_id):
 def get_user_jobs():
     """Get jobs for the current user."""
     try:
-        user_id = int(get_jwt_identity())
+        user_id = get_user_id()
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 20))
         status = request.args.get('status')
@@ -1023,7 +1035,7 @@ def generate_icon():
     try:
         category_id = data['category_id']
         category_name = data['category_name']
-        user_id = int(get_jwt_identity())
+        user_id = get_user_id()
         
         with db_session_scope() as session:
             icon_repo = IconRepository(session)
@@ -1118,7 +1130,7 @@ def generate_icons_batch():
         if not categories:
             return jsonify({"message": "No categories provided"}), 400
         
-        user_id = int(get_jwt_identity())
+        user_id = get_user_id()
         
         # Create job in database
         with db_session_scope() as session:
