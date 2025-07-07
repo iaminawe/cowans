@@ -7,6 +7,13 @@ class LoginSchema(Schema):
     email = fields.Email(required=True)
     password = fields.String(required=True, validate=validate.Length(min=6))
 
+class RegisterSchema(Schema):
+    """Schema for user registration requests."""
+    email = fields.Email(required=True)
+    password = fields.String(required=True, validate=validate.Length(min=8, max=128))
+    first_name = fields.String(required=True, validate=validate.Length(min=1, max=100))
+    last_name = fields.String(required=True, validate=validate.Length(min=1, max=100))
+
 class ScriptParameterSchema(Schema):
     """Schema for script parameters."""
     name = fields.String(required=True)
@@ -85,3 +92,62 @@ class IconGenerationSchema(Schema):
     size = fields.Integer(validate=validate.Range(min=32, max=512), load_default=128)
     background = fields.String(validate=validate.OneOf(['transparent', 'white', 'colored']), load_default='transparent')
     model = fields.String(validate=validate.OneOf(['gpt-image-1', 'dall-e-3']), load_default='gpt-image-1')
+
+class ParallelSyncConfigSchema(Schema):
+    """Schema for parallel sync configuration."""
+    sync_mode = fields.String(validate=validate.OneOf([
+        'full_sync', 'new_only', 'update_only', 'ultra_fast', 'image_sync'
+    ]), required=True)
+    batch_size = fields.Integer(validate=validate.Range(min=1, max=250), load_default=50)
+    min_workers = fields.Integer(validate=validate.Range(min=1, max=20), load_default=2)
+    max_workers = fields.Integer(validate=validate.Range(min=1, max=50), load_default=10)
+    priority = fields.String(validate=validate.OneOf(['critical', 'high', 'normal', 'low', 'batch']), load_default='normal')
+    enable_bulk_operations = fields.Boolean(load_default=True)
+    memory_limit_mb = fields.Integer(validate=validate.Range(min=256, max=4096), load_default=512)
+    enable_monitoring = fields.Boolean(load_default=True)
+    
+class SyncOperationSchema(Schema):
+    """Schema for sync operation requests."""
+    operation_type = fields.String(validate=validate.OneOf([
+        'create', 'update', 'delete', 'update_inventory', 'update_status', 'update_images'
+    ]), required=True)
+    product_ids = fields.List(fields.Integer(), required=True, validate=validate.Length(min=1))
+    priority = fields.String(validate=validate.OneOf(['critical', 'high', 'normal', 'low', 'batch']), load_default='normal')
+    data = fields.Dict(load_default={})
+
+class SyncMetricsSchema(Schema):
+    """Schema for sync metrics responses."""
+    total_operations = fields.Integer(required=True)
+    completed_operations = fields.Integer(required=True)
+    failed_operations = fields.Integer(required=True)
+    retry_operations = fields.Integer(required=True)
+    success_rate = fields.Float(required=True)
+    operations_per_second = fields.Float(required=True)
+    average_operation_time = fields.Float(required=True)
+    queue_depth = fields.Integer(required=True)
+    active_workers = fields.Integer(required=True)
+    total_workers = fields.Integer(required=True)
+    memory_usage_mb = fields.Float(required=True)
+    eta_seconds = fields.Float(allow_none=True)
+    last_updated = fields.DateTime(required=True)
+
+class PerformanceReportSchema(Schema):
+    """Schema for performance report responses."""
+    period_start = fields.DateTime(required=True)
+    period_end = fields.DateTime(required=True)
+    total_operations = fields.Integer(required=True)
+    successful_operations = fields.Integer(required=True)
+    failed_operations = fields.Integer(required=True)
+    average_operation_time = fields.Float(required=True)
+    p95_operation_time = fields.Float(required=True)
+    p99_operation_time = fields.Float(required=True)
+    operations_per_second = fields.Float(required=True)
+    average_queue_depth = fields.Float(required=True)
+    peak_queue_depth = fields.Integer(required=True)
+    average_memory_usage = fields.Float(required=True)
+    peak_memory_usage = fields.Float(required=True)
+    average_cpu_usage = fields.Float(required=True)
+    api_calls = fields.Integer(required=True)
+    api_errors = fields.Integer(required=True)
+    cache_hits = fields.Integer(required=True)
+    cache_misses = fields.Integer(required=True)

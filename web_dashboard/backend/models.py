@@ -198,6 +198,7 @@ class Product(Base):
     category = relationship("Category", back_populates="products")
     sources = relationship("ProductSource", back_populates="product")
     import_batch = relationship("EtilizeImportBatch")
+    collections = relationship("Collection", secondary="product_collections", back_populates="products")
     
     # Indexes
     __table_args__ = (
@@ -580,6 +581,105 @@ class SystemLog(Base):
     
     def __repr__(self):
         return f"<SystemLog(id={self.id}, level='{self.level}', message='{self.message[:50]}...')>"
+
+class Collection(Base):
+    """Collection model for organizing products into groups."""
+    __tablename__ = 'collections'
+    
+    id = Column(Integer, primary_key=True)
+    
+    # Basic information
+    name = Column(String(255), nullable=False)
+    handle = Column(String(255), unique=True, nullable=False, index=True)
+    description = Column(Text)
+    sort_order = Column(String(50), default='manual')  # manual, alphabetical, price_ascending, price_descending, created_descending
+    
+    # Status and visibility
+    status = Column(String(20), default='draft')  # draft, active, archived
+    is_visible = Column(Boolean, default=True)
+    
+    # Shopify integration
+    shopify_collection_id = Column(String(50), unique=True, index=True)
+    shopify_handle = Column(String(255))
+    shopify_synced_at = Column(DateTime)
+    shopify_sync_status = Column(String(20), default='pending')  # pending, synced, failed
+    
+    # Collection rules for automatic collections
+    rules_type = Column(String(20), default='manual')  # manual, automatic
+    rules_conditions = Column(JSON)  # Array of conditions for automatic collections
+    disjunctive = Column(Boolean, default=False)  # True for OR, False for AND
+    
+    # Images
+    image_url = Column(String(1000))
+    image_alt_text = Column(String(255))
+    icon_id = Column(Integer, ForeignKey('icons.id'))
+    
+    # SEO
+    seo_title = Column(String(255))
+    seo_description = Column(Text)
+    
+    # Statistics
+    products_count = Column(Integer, default=0)
+    
+    # Metadata
+    template_suffix = Column(String(100))
+    published_at = Column(DateTime)
+    published_scope = Column(String(50), default='global')
+    meta_data = Column(JSON)
+    
+    # User tracking
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    updated_by = Column(Integer, ForeignKey('users.id'))
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    icon = relationship("Icon")
+    created_by_user = relationship("User", foreign_keys=[created_by])
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
+    products = relationship("Product", secondary="product_collections", back_populates="collections")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_collection_handle', 'handle'),
+        Index('idx_collection_status', 'status'),
+        Index('idx_collection_shopify', 'shopify_collection_id'),
+        Index('idx_collection_created_by', 'created_by'),
+    )
+    
+    def __repr__(self):
+        return f"<Collection(id={self.id}, name='{self.name}', handle='{self.handle}')>"
+
+
+class ProductCollection(Base):
+    """Association table for many-to-many relationship between products and collections."""
+    __tablename__ = 'product_collections'
+    
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    collection_id = Column(Integer, ForeignKey('collections.id'), nullable=False)
+    position = Column(Integer, default=0)  # For manual sorting within collection
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    
+    # Relationships
+    product = relationship("Product")
+    collection = relationship("Collection")
+    
+    # Indexes and constraints
+    __table_args__ = (
+        UniqueConstraint('product_id', 'collection_id', name='uq_product_collection'),
+        Index('idx_product_collection_product', 'product_id'),
+        Index('idx_product_collection_collection', 'collection_id'),
+        Index('idx_product_collection_position', 'position'),
+    )
+    
+    def __repr__(self):
+        return f"<ProductCollection(product_id={self.product_id}, collection_id={self.collection_id})>"
+
 
 class Configuration(Base):
     """Configuration model for system settings."""

@@ -163,27 +163,30 @@ def restore_database(args):
 def database_info(args):
     """Show database information."""
     try:
-        db_url = get_database_url()
-        db_manager = DatabaseManager(db_url)
-        db_manager.initialize(create_tables=False)
-        
-        # Health check
-        health = db_manager.health_check()
+        # Ensure database is initialized
+        if not db_manager.engine:
+            initialize_db()
         
         print("\n=== Database Information ===")
-        print(f"Database URL: {health.get('database_url', 'N/A')}")
-        print(f"Status: {health.get('status', 'unknown')}")
-        print(f"Connection test: {'✓' if health.get('connection_test') else '✗'}")
+        print(f"Database URL: {get_database_url()}")
         
-        if health.get('error'):
-            print(f"Error: {health['error']}")
+        # Get table statistics using DatabaseUtils
+        stats = DatabaseUtils.get_table_stats()
         
-        # Table statistics
-        stats = db_manager.get_table_stats()
-        if stats:
-            print(f"\n=== Table Statistics ===")
-            for table, count in stats.items():
-                print(f"{table}: {count}")
+        print(f"\n=== Table Statistics ===")
+        for table, count in stats.items():
+            print(f"{table}: {count} records")
+        
+        # Check database health
+        checker = DatabaseHealthChecker(db_manager.engine)
+        report = checker.run_health_check()
+        
+        print(f"\n=== Health Status ===")
+        print(f"Status: {report['status'].upper()}")
+        print(f"Connection: {'✓ Connected' if report['status'] != 'unhealthy' else '✗ Disconnected'}")
+        
+        if report.get('warnings'):
+            print(f"\nWarnings: {len(report['warnings'])}")
         
         print()
         

@@ -2,12 +2,15 @@
 Category Repository for managing category database operations.
 """
 
+import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 
 from models import Category, Product
 from .base import BaseRepository
+
+logger = logging.getLogger(__name__)
 
 class CategoryRepository(BaseRepository):
     """Repository for Category model operations."""
@@ -249,3 +252,47 @@ class CategoryRepository(BaseRepository):
             }
             for category, count in results
         ]
+    
+    def get_by_name(self, name: str) -> Optional[Category]:
+        """Get category by name."""
+        return self.session.query(Category).filter(
+            Category.name.ilike(f'%{name}%')
+        ).first()
+    
+    def create_category(self, category_data: Dict[str, Any]) -> Optional[Category]:
+        """Create a new category."""
+        try:
+            category = Category(**category_data)
+            self.session.add(category)
+            self.session.commit()
+            self.session.refresh(category)
+            return category
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error creating category: {e}")
+            return None
+    
+    def update_category(self, category_id: int, update_data: Dict[str, Any]) -> Optional[Category]:
+        """Update an existing category."""
+        try:
+            category = self.session.query(Category).filter(Category.id == category_id).first()
+            if not category:
+                return None
+            
+            for key, value in update_data.items():
+                if hasattr(category, key):
+                    setattr(category, key, value)
+            
+            self.session.commit()
+            self.session.refresh(category)
+            return category
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error updating category {category_id}: {e}")
+            return None
+    
+    def count_with_shopify_mapping(self) -> int:
+        """Count categories that have Shopify collection mapping."""
+        return self.session.query(Category).filter(
+            Category.shopify_collection_id.isnot(None)
+        ).count()

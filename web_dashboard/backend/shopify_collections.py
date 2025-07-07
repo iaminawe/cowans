@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 import base64
+import json
 import requests
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
@@ -133,6 +134,82 @@ mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
       parameters {
         name
         value
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+CREATE_COLLECTION_MUTATION = """
+mutation createCollection($input: CollectionInput!) {
+  collectionCreate(input: $input) {
+    collection {
+      id
+      handle
+      title
+      description
+      sortOrder
+      templateSuffix
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+UPDATE_COLLECTION_MUTATION = """
+mutation updateCollection($input: CollectionInput!) {
+  collectionUpdate(input: $input) {
+    collection {
+      id
+      handle
+      title
+      description
+      sortOrder
+      templateSuffix
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+ADD_PRODUCTS_TO_COLLECTION_MUTATION = """
+mutation addProductsToCollection($id: ID!, $productIds: [ID!]!) {
+  collectionAddProducts(id: $id, productIds: $productIds) {
+    collection {
+      id
+      handle
+      title
+      productsCount {
+        count
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+REMOVE_PRODUCTS_FROM_COLLECTION_MUTATION = """
+mutation removeProductsFromCollection($id: ID!, $productIds: [ID!]!) {
+  collectionRemoveProducts(id: $id, productIds: $productIds) {
+    collection {
+      id
+      handle
+      title
+      productsCount {
+        count
       }
     }
     userErrors {
@@ -409,3 +486,284 @@ class ShopifyCollectionsManager(ShopifyAPIBase):
         except Exception as e:
             self.logger.error(f"Error fetching collection by handle: {str(e)}")
             return None
+    
+    def create_collection(self, collection_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a new collection in Shopify.
+        
+        Args:
+            collection_data: Dictionary containing collection information
+            
+        Returns:
+            Dictionary with creation result
+        """
+        try:
+            # Prepare collection input
+            collection_input = {
+                "title": collection_data.get("title", ""),
+                "handle": collection_data.get("handle", ""),
+                "description": collection_data.get("description", ""),
+                "sortOrder": collection_data.get("sortOrder", "BEST_SELLING"),
+            }
+            
+            # Add optional fields
+            if "templateSuffix" in collection_data:
+                collection_input["templateSuffix"] = collection_data["templateSuffix"]
+            
+            # Add SEO data if provided
+            if "seo" in collection_data:
+                collection_input["seo"] = collection_data["seo"]
+            
+            # Add metafields if provided
+            if "metafields" in collection_data:
+                collection_input["metafields"] = collection_data["metafields"]
+            
+            # Execute the mutation
+            result = self.execute_graphql(CREATE_COLLECTION_MUTATION, {"input": collection_input})
+            
+            if 'errors' in result:
+                self.logger.error(f"GraphQL errors: {result['errors']}")
+                return {"success": False, "error": str(result['errors'])}
+            
+            collection_result = result.get('data', {}).get('collectionCreate', {})
+            
+            if collection_result.get('userErrors'):
+                self.logger.error(f"User errors: {collection_result['userErrors']}")
+                return {"success": False, "error": str(collection_result['userErrors'])}
+            
+            collection = collection_result.get('collection', {})
+            collection['numeric_id'] = collection['id'].split('/')[-1]
+            
+            self.logger.info(f"Successfully created collection: {collection['title']}")
+            
+            return {
+                "success": True,
+                "collection": collection
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error creating collection: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def update_collection(self, collection_id: str, collection_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update an existing collection in Shopify.
+        
+        Args:
+            collection_id: Shopify collection ID (GraphQL format)
+            collection_data: Dictionary containing updated collection information
+            
+        Returns:
+            Dictionary with update result
+        """
+        try:
+            # Prepare collection input
+            collection_input = {
+                "id": collection_id
+            }
+            
+            # Add fields to update
+            if "title" in collection_data:
+                collection_input["title"] = collection_data["title"]
+            
+            if "handle" in collection_data:
+                collection_input["handle"] = collection_data["handle"]
+            
+            if "description" in collection_data:
+                collection_input["description"] = collection_data["description"]
+            
+            if "sortOrder" in collection_data:
+                collection_input["sortOrder"] = collection_data["sortOrder"]
+            
+            if "templateSuffix" in collection_data:
+                collection_input["templateSuffix"] = collection_data["templateSuffix"]
+            
+            if "seo" in collection_data:
+                collection_input["seo"] = collection_data["seo"]
+            
+            if "metafields" in collection_data:
+                collection_input["metafields"] = collection_data["metafields"]
+            
+            # Execute the mutation
+            result = self.execute_graphql(UPDATE_COLLECTION_MUTATION, {"input": collection_input})
+            
+            if 'errors' in result:
+                self.logger.error(f"GraphQL errors: {result['errors']}")
+                return {"success": False, "error": str(result['errors'])}
+            
+            collection_result = result.get('data', {}).get('collectionUpdate', {})
+            
+            if collection_result.get('userErrors'):
+                self.logger.error(f"User errors: {collection_result['userErrors']}")
+                return {"success": False, "error": str(collection_result['userErrors'])}
+            
+            collection = collection_result.get('collection', {})
+            collection['numeric_id'] = collection['id'].split('/')[-1]
+            
+            self.logger.info(f"Successfully updated collection: {collection['title']}")
+            
+            return {
+                "success": True,
+                "collection": collection
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error updating collection: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def add_products_to_collection(self, collection_id: str, product_ids: List[str]) -> Dict[str, Any]:
+        """
+        Add products to a collection.
+        
+        Args:
+            collection_id: Shopify collection ID (GraphQL format)
+            product_ids: List of Shopify product IDs (GraphQL format)
+            
+        Returns:
+            Dictionary with operation result
+        """
+        try:
+            result = self.execute_graphql(
+                ADD_PRODUCTS_TO_COLLECTION_MUTATION,
+                {"id": collection_id, "productIds": product_ids}
+            )
+            
+            if 'errors' in result:
+                self.logger.error(f"GraphQL errors: {result['errors']}")
+                return {"success": False, "error": str(result['errors'])}
+            
+            collection_result = result.get('data', {}).get('collectionAddProducts', {})
+            
+            if collection_result.get('userErrors'):
+                self.logger.error(f"User errors: {collection_result['userErrors']}")
+                return {"success": False, "error": str(collection_result['userErrors'])}
+            
+            collection = collection_result.get('collection', {})
+            
+            self.logger.info(f"Successfully added {len(product_ids)} products to collection {collection['title']}")
+            
+            return {
+                "success": True,
+                "collection": collection,
+                "products_added": len(product_ids)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error adding products to collection: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def remove_products_from_collection(self, collection_id: str, product_ids: List[str]) -> Dict[str, Any]:
+        """
+        Remove products from a collection.
+        
+        Args:
+            collection_id: Shopify collection ID (GraphQL format)
+            product_ids: List of Shopify product IDs (GraphQL format)
+            
+        Returns:
+            Dictionary with operation result
+        """
+        try:
+            result = self.execute_graphql(
+                REMOVE_PRODUCTS_FROM_COLLECTION_MUTATION,
+                {"id": collection_id, "productIds": product_ids}
+            )
+            
+            if 'errors' in result:
+                self.logger.error(f"GraphQL errors: {result['errors']}")
+                return {"success": False, "error": str(result['errors'])}
+            
+            collection_result = result.get('data', {}).get('collectionRemoveProducts', {})
+            
+            if collection_result.get('userErrors'):
+                self.logger.error(f"User errors: {collection_result['userErrors']}")
+                return {"success": False, "error": str(collection_result['userErrors'])}
+            
+            collection = collection_result.get('collection', {})
+            
+            self.logger.info(f"Successfully removed {len(product_ids)} products from collection {collection['title']}")
+            
+            return {
+                "success": True,
+                "collection": collection,
+                "products_removed": len(product_ids)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error removing products from collection: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def sync_category_to_collection(self, category: Dict[str, Any], product_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Sync a local category to Shopify as a collection.
+        
+        Args:
+            category: Category data from local database
+            product_ids: Optional list of product IDs to add to the collection
+            
+        Returns:
+            Dictionary with sync result
+        """
+        try:
+            # Check if collection already exists
+            existing_collection = None
+            if category.get('shopify_collection_id'):
+                # Try to get existing collection to verify it still exists
+                collections = self.get_all_collections()
+                existing_collection = next(
+                    (col for col in collections if col['id'] == category['shopify_collection_id']),
+                    None
+                )
+            
+            # Prepare collection data
+            collection_data = {
+                "title": category.get("name", ""),
+                "handle": category.get("slug", "").replace("_", "-"),
+                "description": category.get("description", ""),
+                "sortOrder": "BEST_SELLING"
+            }
+            
+            # Add metafields for category tracking
+            metafields = [
+                {
+                    "namespace": "category_sync",
+                    "key": "local_category_id",
+                    "value": str(category.get("id", "")),
+                    "type": "single_line_text_field"
+                },
+                {
+                    "namespace": "category_sync",
+                    "key": "synced_at",
+                    "value": datetime.utcnow().isoformat(),
+                    "type": "single_line_text_field"
+                }
+            ]
+            
+            collection_data["metafields"] = metafields
+            
+            # Create or update collection
+            if existing_collection:
+                result = self.update_collection(category['shopify_collection_id'], collection_data)
+            else:
+                result = self.create_collection(collection_data)
+            
+            if not result.get("success"):
+                return result
+            
+            collection = result["collection"]
+            
+            # Add products to collection if provided
+            if product_ids:
+                add_result = self.add_products_to_collection(collection["id"], product_ids)
+                if not add_result.get("success"):
+                    self.logger.warning(f"Failed to add products to collection: {add_result.get('error')}")
+            
+            return {
+                "success": True,
+                "collection": collection,
+                "operation": "updated" if existing_collection else "created"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error syncing category to collection: {str(e)}")
+            return {"success": False, "error": str(e)}

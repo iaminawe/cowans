@@ -2,12 +2,15 @@
 Product Repository for managing product database operations.
 """
 
+import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 
 from models import Product, ProductStatus, Category
 from .base import BaseRepository
+
+logger = logging.getLogger(__name__)
 
 class ProductRepository(BaseRepository):
     """Repository for Product model operations."""
@@ -61,6 +64,13 @@ class ProductRepository(BaseRepository):
         if limit:
             query = query.limit(limit)
         return query.all()
+    
+    def get_by_product_type(self, product_type: str, limit: int = 10) -> List[Product]:
+        """Get products by product type."""
+        return self.session.query(Product)\
+            .filter(Product.product_type == product_type)\
+            .limit(limit)\
+            .all()
     
     def get_unsynced(self, limit: Optional[int] = None) -> List[Product]:
         """Get products that haven't been synced to Shopify."""
@@ -217,3 +227,51 @@ class ProductRepository(BaseRepository):
             'has_prev': page > 1,
             'has_next': page < total_pages
         }
+    
+    def create_product(self, product_data: Dict[str, Any]) -> Optional[Product]:
+        """Create a new product."""
+        try:
+            product = Product(**product_data)
+            self.session.add(product)
+            self.session.commit()
+            self.session.refresh(product)
+            return product
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error creating product: {e}")
+            return None
+    
+    def update_product(self, product_id: int, update_data: Dict[str, Any]) -> Optional[Product]:
+        """Update an existing product."""
+        try:
+            product = self.session.query(Product).filter(Product.id == product_id).first()
+            if not product:
+                return None
+            
+            for key, value in update_data.items():
+                if hasattr(product, key):
+                    setattr(product, key, value)
+            
+            self.session.commit()
+            self.session.refresh(product)
+            return product
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"Error updating product {product_id}: {e}")
+            return None
+    
+    def count_all(self) -> int:
+        """Count all products."""
+        return self.session.query(Product).count()
+    
+    def count_by_sync_status(self, sync_status: str) -> int:
+        """Count products by sync status."""
+        return self.session.query(Product).filter(
+            Product.shopify_sync_status == sync_status
+        ).count()
+    
+    def get_recently_synced(self, limit: int = 10) -> List[Product]:
+        """Get recently synced products."""
+        return self.session.query(Product).filter(
+            Product.shopify_synced_at.isnot(None)
+        ).order_by(Product.shopify_synced_at.desc()).limit(limit).all()

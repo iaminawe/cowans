@@ -61,6 +61,8 @@ from models import Product, Category, ProductStatus, IconStatus, JobStatus
 from import_api import import_bp
 from shopify_sync_api import shopify_sync_bp
 from xorosoft_api import xorosoft_bp
+from collections_api import collections_bp
+from products_batch_api import products_batch_bp
 
 # Import services
 from services.icon_category_service import IconCategoryService
@@ -2569,6 +2571,60 @@ def test_shopify_connection():
         app.logger.error(f"Error testing Shopify connection: {e}")
         return jsonify({"message": "Failed to test connection"}), 500
 
+# Temporary test endpoint without auth for debugging
+@app.route("/api/shopify/test-connection-debug", methods=["GET"])
+def test_shopify_connection_debug():
+    """Test Shopify API connection without authentication (DEBUG ONLY)."""
+    try:
+        # Check if Shopify credentials are set
+        shop_url = os.getenv('SHOPIFY_SHOP_URL')
+        access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+        
+        if not shop_url or not access_token:
+            return jsonify({
+                "success": False,
+                "message": "Shopify credentials not found in environment variables",
+                "debug": {
+                    "shop_url_set": bool(shop_url),
+                    "access_token_set": bool(access_token)
+                }
+            }), 400
+        
+        with db_session_scope() as session:
+            service = ShopifyProductSyncService(session)
+            
+            # Test basic connection by making a simple request
+            result = service._make_shopify_request('shop.json')
+            
+            if result['success']:
+                shop_data = result['data']['shop']
+                return jsonify({
+                    "success": True,
+                    "message": "Successfully connected to Shopify",
+                    "shop": {
+                        "name": shop_data.get('name'),
+                        "domain": shop_data.get('domain'),
+                        "plan": shop_data.get('plan_name'),
+                        "currency": shop_data.get('currency'),
+                        "timezone": shop_data.get('timezone')
+                    }
+                }), 200
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "Failed to connect to Shopify",
+                    "error": result['error'],
+                    "error_code": result.get('error_code', 'UNKNOWN')
+                }), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error testing Shopify connection: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Failed to test connection",
+            "error": str(e)
+        }), 500
+
 # Enhanced Product Management Endpoints with Shopify Integration
 @app.route("/api/products/with-shopify-data", methods=["GET"])
 @supabase_jwt_required
@@ -3085,6 +3141,8 @@ def test_sync_collection(collection_id):
 app.register_blueprint(import_bp)
 app.register_blueprint(shopify_sync_bp)
 app.register_blueprint(xorosoft_bp)
+app.register_blueprint(collections_bp)
+app.register_blueprint(products_batch_bp)
 
 # Register batch processing blueprint
 from batch_api import batch_bp
