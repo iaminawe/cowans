@@ -132,87 +132,27 @@ source venv/bin/activate
 print_status "Installing Python dependencies..."
 pip install -r requirements.txt --quiet
 
-# Initialize database if it doesn't exist or is empty
-if [ ! -f "$DB_FILE" ] || [ ! -s "$DB_FILE" ]; then
-    print_warning "Database not found or empty. Initializing..."
-    
-    # Create database schema
-    python -c "
-from database import init_database
-init_database(create_tables=True)
-print('Database tables created successfully')
-"
-    
-    # Run initial migration setup
-    if [ -f "alembic.ini" ]; then
-        print_status "Setting up database migrations..."
-        alembic stamp head
-        print_success "Database migrations initialized"
-    fi
-    
-    # Ask if user wants test data
-    read -p "Would you like to seed the database with test data? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_status "Seeding database with test data..."
-        python manage_db.py seed all
-        print_success "Test data created"
-    else
-        # Create default admin user
-        print_status "Creating default admin user..."
-        python -c "
-from database import db_session_scope
-from models import User
-from werkzeug.security import generate_password_hash
-
-with db_session_scope() as session:
-    # Check if admin already exists
-    existing = session.query(User).filter_by(email='admin@cowans.com').first()
-    if not existing:
-        admin = User(
-            email='admin@cowans.com',
-            username='admin',
-            password_hash=generate_password_hash('admin123'),
-            is_admin=True,
-            is_active=True
-        )
-        session.add(admin)
-        session.commit()
-        print('Default admin user created')
-        print('Email: admin@cowans.com')
-        print('Password: admin123')
-    else:
-        print('Admin user already exists')
-"
-    fi
-else
-    print_success "Database already exists"
-    
-    # Check database health
-    print_status "Running database health check..."
-    python -c "
-from db_utils import DatabaseHealthChecker
-from database import db_manager, init_database
-
-# Ensure database is initialized
-if not db_manager.engine:
+# Check PostgreSQL database connection
+print_status "Checking PostgreSQL database connection..."
+python -c "
+try:
+    from database import db_manager, init_database
+    # Initialize database connection
     init_database()
-
-checker = DatabaseHealthChecker(db_manager.engine)
-report = checker.run_health_check()
-if report['status'] == 'healthy':
-    print('✓ Database is healthy')
-else:
-    print('⚠ Database issues detected:', report['summary'])
+    if db_manager.engine:
+        print('✓ PostgreSQL database connected successfully')
+    else:
+        print('⚠ Database connection issues')
+except Exception as e:
+    print(f'❌ Database connection failed: {e}')
 "
-fi
 
 # Start backend
 print_status "Starting backend server on port $BACKEND_PORT..."
 export FLASK_ENV=development
-export DATABASE_URL="sqlite:///$DB_FILE"
-cd "$BACKEND_DIR"
-python app.py > "../$LOG_DIR/backend.log" 2>&1 &
+# Use DATABASE_URL from .env file (PostgreSQL/Supabase)
+# Already in BACKEND_DIR from line 118
+python app.py > "../../$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 
 # Return to root directory
@@ -274,7 +214,7 @@ if [ -f "celery_app.py" ] && command_exists celery; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_status "Starting Celery worker..."
-        celery -A celery_app worker --loglevel=info > "../$LOG_DIR/celery.log" 2>&1 &
+        celery -A celery_app worker --loglevel=info > "../../$LOG_DIR/celery.log" 2>&1 &
         CELERY_PID=$!
         print_success "Celery worker started"
     fi
@@ -289,7 +229,7 @@ echo ""
 echo "🌐 Frontend URL:    http://localhost:$FRONTEND_PORT"
 echo "📡 Backend API:     http://localhost:$BACKEND_PORT"
 echo "📊 API Docs:        http://localhost:$BACKEND_PORT/docs"
-echo "📁 Database:        $DB_FILE"
+echo "🗄️ Database:        PostgreSQL (Supabase)"
 echo ""
 echo "🔑 Default Login:"
 echo "   Email:    admin@cowans.com"
