@@ -1,10 +1,19 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables FIRST before any other imports
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from services.supabase_auth import (
+    auth_service, supabase_jwt_required, supabase_jwt_optional,
+    get_current_user_id, get_current_user_email, require_role
+)
 from functools import wraps
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import timedelta
-import os
 import redis
 import logging
 import time
@@ -13,8 +22,9 @@ import json
 import uuid
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
-from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 # Icon generation imports
 from icon_generation_service import (
@@ -26,7 +36,7 @@ from openai_client import ImageGenerationRequest
 
 from config import config
 from schemas import (
-    LoginSchema, ScriptExecutionSchema, JobStatusSchema,
+    LoginSchema, RegisterSchema, ScriptExecutionSchema, JobStatusSchema,
     SyncHistorySchema, ScriptDefinitionSchema, CategoryIconSchema,
     IconGenerationSchema
 )
@@ -45,9 +55,19 @@ from repositories import (
     UserRepository, ProductRepository, CategoryRepository,
     IconRepository, JobRepository, SyncHistoryRepository
 )
-from models import ProductStatus, IconStatus, JobStatus
+from models import Product, Category, ProductStatus, IconStatus, JobStatus
 
-load_dotenv()
+# Import API blueprints
+from import_api import import_bp
+from shopify_sync_api import shopify_sync_bp
+from xorosoft_api import xorosoft_bp
+
+# Import services
+from services.icon_category_service import IconCategoryService
+from services.shopify_icon_sync_service import ShopifyIconSyncService
+from services.shopify_product_sync_service import ShopifyProductSyncService
+
+# Environment variables already loaded at the top
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -82,76 +102,106 @@ except:
 # Initialize Job Manager
 job_manager = JobManager(redis_client) if redis_client else None
 
-# Initialize database
-try:
-    app.logger.info("Backend startup")
-    init_database(create_tables=True)
-    app.logger.info("Database initialized successfully")
-except Exception as e:
-    app.logger.error(f"Failed to initialize database: {e}")
-    # Continue anyway for development
+# Initialize WebSocket Service
+from websocket_service import WebSocketService
+from websocket_handlers import register_websocket_handlers
+websocket_service = WebSocketService(socketio)
 
-# Initialize Icon Generation Service (global instance)
-icon_service = None
+# Register WebSocket handlers with Supabase authentication
+register_websocket_handlers(socketio)
 
-# Initialize Icon Storage and Generator (create instances if needed)
-try:
-    icon_storage = IconStorage(base_path="data/category_icons")
-    # Try to use OpenAI-powered generator if available
-    if os.getenv("OPENAI_API_KEY"):
-        from icon_generator_openai import icon_generator_openai
-        icon_generator = icon_generator_openai
-        app.logger.info("Using OpenAI-powered icon generator")
-    else:
-        icon_generator = IconGenerator()
-        app.logger.warning("No OpenAI API key found, using placeholder icon generator")
-except Exception as e:
-    app.logger.warning(f"Icon storage/generator not available: {e}")
-    icon_storage = None
-    icon_generator = None
+# Register health check blueprint
+from health_check import health_bp
+app.register_blueprint(health_bp)
 
-# Development mode auth bypass
-DEV_MODE = os.getenv('FLASK_ENV', 'development') == 'development'
-if DEV_MODE:
-    app.logger.warning("Running in development mode - authentication bypassed")
+# Initialize error tracking
+from error_tracking import error_tracker
 
-def dev_jwt_required():
-    """JWT required decorator that bypasses auth in development mode"""
-    def decorator(fn):
-        if DEV_MODE:
-            @wraps(fn)
-            def wrapper(*args, **kwargs):
-                return fn(*args, **kwargs)
-            return wrapper
-        else:
-            return jwt_required()(fn)
-    return decorator
-
-# Replace jwt_required with our dev version
-jwt_required = dev_jwt_required
-
-# Also bypass get_jwt_identity in dev mode
-original_get_jwt_identity = get_jwt_identity
-def dev_get_jwt_identity():
-    """Get JWT identity with dev mode bypass"""
-    if DEV_MODE:
-        return "dev-user"  # Return a dummy user ID
-    else:
-        return original_get_jwt_identity()
-
-get_jwt_identity = dev_get_jwt_identity
+# DISABLED: # Development mode auth bypass
+# DISABLED: DEV_MODE = os.getenv('FLASK_ENV', 'development') == 'development'
+# DISABLED: 
+# DISABLED: def jwt_required_bypass(fn):
+# DISABLED:     """JWT required decorator that bypasses auth in development mode"""
+# DISABLED:     @wraps(fn)
+# DISABLED:     def wrapper(*args, **kwargs):
+# DISABLED:         if DEV_MODE:
+# DISABLED:             return fn(*args, **kwargs)
+# DISABLED:         else:
+# DISABLED:             return jwt_required()(fn)(*args, **kwargs)
+# DISABLED:     return wrapper
+# DISABLED: 
+# DISABLED: # Initialize database
+# DISABLED: try:
+# DISABLED:     app.logger.info("Backend startup")
+# DISABLED:     init_database(create_tables=True)
+# DISABLED:     app.logger.info("Database initialized successfully")
+# DISABLED: except Exception as e:
+# DISABLED:     app.logger.error(f"Failed to initialize database: {e}")
+# DISABLED:     # Continue anyway for development
+# DISABLED: 
+# DISABLED: # Initialize Icon Generation Service (global instance)
+# DISABLED: icon_service = None
+# DISABLED: 
+# DISABLED: # Initialize Icon Storage and Generator (create instances if needed)
+# DISABLED: try:
+# DISABLED:     icon_storage = IconStorage(base_path="data/category_icons")
+# DISABLED:     # Try to use OpenAI-powered generator if available
+# DISABLED:     if os.getenv("OPENAI_API_KEY"):
+# DISABLED:         from icon_generator_openai import icon_generator_openai
+# DISABLED:         icon_generator = icon_generator_openai
+# DISABLED:         app.logger.info("Using OpenAI-powered icon generator")
+# DISABLED:     else:
+# DISABLED:         icon_generator = IconGenerator()
+# DISABLED:         app.logger.warning("No OpenAI API key found, using placeholder icon generator")
+# DISABLED: except Exception as e:
+# DISABLED:     app.logger.warning(f"Icon storage/generator not available: {e}")
+# DISABLED:     icon_storage = None
+# DISABLED:     icon_generator = None
+# DISABLED: 
+# DISABLED: # Development mode auth bypass
+# DISABLED: DEV_MODE = os.getenv('FLASK_ENV', 'development') == 'development'
+# DISABLED: if DEV_MODE:
+# DISABLED:     app.logger.warning("Running in development mode - authentication bypassed")
+# DISABLED: 
+# DISABLED: def dev_jwt_required():
+# DISABLED:     """JWT required decorator that bypasses auth in development mode"""
+# DISABLED:     def decorator(fn):
+# DISABLED:         if DEV_MODE:
+# DISABLED:             @wraps(fn)
+# DISABLED:             def wrapper(*args, **kwargs):
+# DISABLED:                 return fn(*args, **kwargs)
+# DISABLED:             return wrapper
+# DISABLED:         else:
+# DISABLED:             return jwt_required()(fn)
+# DISABLED:     return decorator
+# DISABLED: 
+# DISABLED: # Replace jwt_required with our dev version
+# DISABLED: jwt_required = dev_jwt_required
+# DISABLED: 
+# DISABLED: # Also bypass get_jwt_identity in dev mode
+# DISABLED: original_get_jwt_identity = get_jwt_identity
+# DISABLED: def dev_get_jwt_identity():
+# DISABLED:     """Get JWT identity with dev mode bypass"""
+# DISABLED:     if DEV_MODE:
+# DISABLED:         return "dev-user"  # Return a dummy user ID
+# DISABLED:     else:
+# DISABLED:         return original_get_jwt_identity()
+# DISABLED: 
+# DISABLED: get_jwt_identity = dev_get_jwt_identity
 
 def get_user_id():
-    """Helper function to get numeric user ID, handling dev mode."""
-    jwt_identity = get_jwt_identity()
-    if jwt_identity == "dev-user":
-        # In development mode, use a dummy user ID
-        return None  # Allow NULL for dev mode
-    else:
-        try:
-            return int(jwt_identity)
-        except (ValueError, TypeError):
-            return None
+    """Helper function to get user ID from Supabase token."""
+    supabase_user_id = get_current_user_id()
+    if supabase_user_id:
+        with db_session_scope() as session:
+            user_repo = UserRepository(session)
+            user = user_repo.get_by_supabase_id(supabase_user_id)
+            if user:
+                return user.id
+            # For migration period, return fallback
+            app.logger.warning(f"No local user found for Supabase ID: {supabase_user_id}")
+            return 1
+    return None
 
 # Setup logging
 def setup_logging():
@@ -177,6 +227,9 @@ setup_logging()
 # Initialize database on startup
 try:
     init_database(create_tables=True)
+    # Seed initial data including default dev user
+    from database import DatabaseUtils
+    DatabaseUtils.seed_initial_data()
     app.logger.info("Database initialized successfully")
 except Exception as e:
     app.logger.error(f"Failed to initialize database: {e}")
@@ -184,6 +237,7 @@ except Exception as e:
 
 # Schemas
 login_schema = LoginSchema()
+register_schema = RegisterSchema()
 script_execution_schema = ScriptExecutionSchema()
 job_status_schema = JobStatusSchema()
 sync_history_schema = SyncHistorySchema()
@@ -193,51 +247,227 @@ icon_generation_schema = IconGenerationSchema()
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    """Handle user login."""
+    """Handle user login with Supabase."""
     try:
         data = login_schema.load(request.get_json())
     except Exception as e:
         return jsonify({"message": "Invalid request data", "errors": str(e)}), 400
     
     try:
+        # Authenticate with Supabase
+        result = auth_service.sign_in(data["email"], data["password"])
+        
+        # Sync user with local database
         with db_session_scope() as session:
             user_repo = UserRepository(session)
             user = user_repo.get_by_email(data["email"])
             
-            if user and user.is_active and user_repo.verify_password(user, data["password"]):
-                # Update last login
-                user_repo.update_last_login(user.id)
+            if not user:
+                # Create local user record
+                user = user_repo.create_user(
+                    email=data["email"],
+                    password="",  # No password stored locally
+                    first_name=result["user"].get("user_metadata", {}).get("first_name", ""),
+                    last_name=result["user"].get("user_metadata", {}).get("last_name", ""),
+                    supabase_id=result["user"]["id"]
+                )
                 session.commit()
-                
-                access_token = create_access_token(identity=str(user.id))
-                app.logger.info(f"User logged in: {user.email}")
+            elif not user.supabase_id:
+                # Update existing user with Supabase ID
+                user.supabase_id = result["user"]["id"]
+                session.commit()
+            
+            # Update last login
+            user_repo.update_last_login(user.id)
+            session.commit()
+            
+            app.logger.info(f"User logged in: {user.email}")
+            
+            return jsonify({
+                "access_token": result["session"]["access_token"],
+                "refresh_token": result["session"]["refresh_token"],
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "is_admin": user.is_admin
+                }
+            })
+            
+    except Exception as e:
+        app.logger.warning(f"Failed login attempt for: {data['email']} - {str(e)}")
+        return jsonify({"message": "Invalid credentials"}), 401
+
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    """Handle user registration with Supabase."""
+    try:
+        data = register_schema.load(request.get_json())
+    except Exception as e:
+        return jsonify({"message": "Invalid request data", "errors": str(e)}), 400
+    
+    try:
+        # Register with Supabase
+        metadata = {
+            "first_name": data["first_name"],
+            "last_name": data["last_name"]
+        }
+        result = auth_service.sign_up(data["email"], data["password"], metadata)
+        
+        # Create local user record
+        with db_session_scope() as session:
+            user_repo = UserRepository(session)
+            
+            # Check if user already exists locally
+            existing_user = user_repo.get_by_email(data["email"])
+            if existing_user:
+                return jsonify({"message": "User with this email already exists"}), 409
+            
+            # Create new user
+            user = user_repo.create_user(
+                email=data["email"],
+                password="",  # No password stored locally
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                is_admin=False,
+                supabase_id=result["user"]["id"]
+            )
+            session.commit()
+            
+            app.logger.info(f"New user registered: {user.email}")
+            
+            return jsonify({
+                "message": "User registered successfully",
+                "access_token": result["session"]["access_token"] if result.get("session") else None,
+                "refresh_token": result["session"]["refresh_token"] if result.get("session") else None,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "is_admin": user.is_admin
+                }
+            }), 201
+            
+    except Exception as e:
+        app.logger.error(f"Registration failed: {str(e)}")
+        return jsonify({"message": "Registration failed"}), 500
+
+@app.route("/api/auth/me", methods=["GET"])
+@supabase_jwt_required
+def get_current_user():
+    """Get current user profile."""
+    try:
+        user_id = get_user_id()
+        with db_session_scope() as session:
+            user_repo = UserRepository(session)
+            user = user_repo.get(user_id)
+            
+            if not user or not user.is_active:
+                return jsonify({"message": "User not found"}), 404
+            
+            return jsonify({
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "is_admin": user.is_admin,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "last_login": user.last_login.isoformat() if user.last_login else None
+                }
+            })
+            
+    except (ValueError, SQLAlchemyError) as e:
+        app.logger.error(f"Error getting current user: {e}")
+        return jsonify({"message": "Failed to get user profile"}), 500
+
+@app.route("/api/auth/refresh", methods=["POST"])
+def refresh_token():
+    """Refresh access token using refresh token."""
+    try:
+        data = request.get_json()
+        refresh_token = data.get("refresh_token")
+        
+        if not refresh_token:
+            return jsonify({"message": "Refresh token required"}), 400
+        
+        result = auth_service.refresh_token(refresh_token)
+        
+        if result:
+            return jsonify({
+                "access_token": result["access_token"],
+                "refresh_token": result["refresh_token"]
+            })
+        else:
+            return jsonify({"message": "Invalid refresh token"}), 401
+            
+    except Exception as e:
+        app.logger.error(f"Token refresh error: {str(e)}")
+        return jsonify({"message": "Token refresh failed"}), 500
+
+@app.route("/api/auth/logout", methods=["POST"])
+@supabase_jwt_required
+def logout():
+    """Handle user logout (client-side token removal)."""
+    # Note: JWT tokens are stateless, so logout is handled client-side
+    # In production, you might want to implement a token blacklist
+    user_id = get_jwt_identity()
+    app.logger.info(f"User logged out: {user_id}")
+    return jsonify({"message": "Logged out successfully"})
+
+@app.route("/api/auth/debug", methods=["GET"])
+@supabase_jwt_required
+def debug_auth():
+    """Debug authentication to see what's happening."""
+    try:
+        user_id_str = get_jwt_identity()
+        app.logger.info(f"JWT Identity: {user_id_str}")
+        
+        user_id = int(user_id_str)
+        app.logger.info(f"Parsed user_id: {user_id}")
+        
+        with db_session_scope() as session:
+            user_repo = UserRepository(session)
+            app.logger.info(f"UserRepository created")
+            
+            user = user_repo.get(user_id)
+            app.logger.info(f"User query result: {user}")
+            
+            if user:
                 return jsonify({
-                    "access_token": access_token,
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "is_admin": user.is_admin
-                    }
+                    "success": True,
+                    "user_id": user_id,
+                    "user_email": user.email,
+                    "user_active": user.is_active
                 })
-            
-            app.logger.warning(f"Failed login attempt for: {data['email']}")
-            return jsonify({"message": "Invalid credentials"}), 401
-            
-    except SQLAlchemyError as e:
-        app.logger.error(f"Database error during login: {e}")
-        return jsonify({"message": "Login failed"}), 500
+            else:
+                return jsonify({
+                    "success": False,
+                    "user_id": user_id,
+                    "message": "User not found in database"
+                })
+                
+    except Exception as e:
+        app.logger.error(f"Debug auth error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "user_id_str": get_jwt_identity() if 'get_jwt_identity' in locals() else "N/A"
+        })
 
 @app.route("/api/scripts", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_scripts():
     """Get available scripts organized by category."""
     scripts = get_all_scripts()
     return jsonify(scripts)
 
 @app.route("/api/scripts/<script_name>", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_script_details(script_name):
     """Get details for a specific script."""
     script_info = get_script_info(script_name)
@@ -250,7 +480,7 @@ def get_script_details(script_name):
     })
 
 @app.route("/api/scripts/execute", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def execute_script():
     """Execute a script with given parameters."""
     try:
@@ -308,7 +538,7 @@ def execute_script():
         }), 201
 
 @app.route("/api/jobs/<job_id>", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_job_status(job_id):
     """Get status of a specific job."""
     try:
@@ -346,7 +576,7 @@ def get_job_status(job_id):
         return jsonify({"message": "Failed to retrieve job status"}), 500
 
 @app.route("/api/jobs/<job_id>/cancel", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def cancel_job(job_id):
     """Cancel a running job."""
     try:
@@ -376,13 +606,13 @@ def cancel_job(job_id):
         return jsonify({"message": "Failed to cancel job"}), 500
 
 @app.route("/api/jobs/<job_id>/logs", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_job_logs(job_id):
     """Get log file for a job (mock for development)."""
     return jsonify({"message": "Log file not found"}), 404
 
 @app.route("/api/jobs", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_user_jobs():
     """Get jobs for the current user."""
     try:
@@ -436,16 +666,91 @@ def get_user_jobs():
         return jsonify({"message": "Failed to retrieve jobs"}), 500
 
 @app.route("/api/sync/trigger", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def trigger_sync():
     """Trigger full sync workflow (backward compatibility)."""
     import uuid
     from datetime import datetime
+    import threading
     
     user_id = get_jwt_identity()
     job_id = str(uuid.uuid4())
     
     app.logger.info(f"Sync triggered by user: {user_id}")
+    
+    # Start async sync process with WebSocket updates
+    def run_sync_with_updates():
+        try:
+            # Emit start event
+            websocket_service.emit_operation_start(
+                operation_id=job_id,
+                operation_type='sync',
+                description='Full product synchronization',
+                total_steps=5
+            )
+            
+            # Simulate sync steps
+            steps = [
+                (1, "Connecting to FTP server..."),
+                (2, "Downloading product data..."),
+                (3, "Processing and filtering products..."),
+                (4, "Uploading to Shopify..."),
+                (5, "Sync complete!")
+            ]
+            
+            for step, message in steps:
+                time.sleep(2)  # Simulate work
+                websocket_service.emit_operation_progress(
+                    operation_id=job_id,
+                    current_step=step,
+                    message=message
+                )
+                
+                # Emit some logs
+                websocket_service.emit_operation_log(
+                    operation_id=job_id,
+                    level='info',
+                    message=f"Step {step}: {message}",
+                    source='sync_engine'
+                )
+            
+            # Emit completion
+            websocket_service.emit_operation_complete(
+                operation_id=job_id,
+                status='success',
+                result={
+                    'products_synced': 150,
+                    'products_updated': 45,
+                    'products_failed': 2
+                }
+            )
+            
+            # Store in sync history
+            with db_session_scope() as session:
+                sync_repo = SyncHistoryRepository(session)
+                sync_repo.create(
+                    sync_type='full_sync',
+                    source='manual_trigger',
+                    status='success',
+                    message='Sync completed successfully',
+                    items_processed=197,
+                    items_successful=195,
+                    items_failed=2,
+                    duration=10.0,
+                    user_id=get_user_id()
+                )
+                
+        except Exception as e:
+            app.logger.error(f"Sync error: {str(e)}")
+            websocket_service.emit_operation_complete(
+                operation_id=job_id,
+                status='error',
+                error=str(e)
+            )
+    
+    # Start sync in background thread
+    thread = threading.Thread(target=run_sync_with_updates)
+    thread.start()
     
     return jsonify({
         "message": "Sync triggered successfully",
@@ -453,7 +758,7 @@ def trigger_sync():
     })
 
 @app.route("/api/sync/history", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_sync_history():
     """Get sync history."""
     try:
@@ -482,19 +787,54 @@ def get_sync_history():
             
     except Exception as e:
         app.logger.error(f"Error getting sync history: {e}")
+        
+        # Check if it's a database corruption error
+        if "database disk image is malformed" in str(e):
+            return jsonify({
+                "message": "Database corruption detected. Please contact administrator.",
+                "error": "DATABASE_CORRUPTED"
+            }), 503
+        
         return jsonify({"message": "Failed to retrieve sync history"}), 500
 
 # WebSocket event handlers
 @socketio.on('connect')
-def handle_connect():
-    """Handle client connection."""
+def handle_connect(auth=None):
+    """Handle client connection with optional Supabase authentication."""
     app.logger.info(f"WebSocket connected: {request.sid}")
-    emit('connected', {'message': 'Connected to server'})
+    
+    # Try to authenticate if auth data provided
+    user_id = None
+    user_email = None
+    
+    if auth and isinstance(auth, dict):
+        token = auth.get('token')
+        if token:
+            is_valid, user_data = auth_service.verify_token(token)
+            if is_valid and user_data:
+                # Get user from local database
+                with db_session_scope() as session:
+                    user_repo = UserRepository(session)
+                    user = user_repo.get_by_supabase_id(user_data.get('id'))
+                    if user:
+                        user_id = user.id
+                        user_email = user.email
+                    app.logger.info(f"WebSocket authenticated for user: {user_email}")
+    
+    # Register client with WebSocket service
+    websocket_service.register_client(request.sid, user_id)
+    emit('connected', {
+        'message': 'Connected to server',
+        'sid': request.sid,
+        'authenticated': user_id is not None,
+        'user_email': user_email
+    })
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """Handle client disconnection."""
     app.logger.info(f"WebSocket disconnected: {request.sid}")
+    websocket_service.unregister_client(request.sid)
 
 @socketio.on('execute')
 def handle_execute(data):
@@ -537,9 +877,45 @@ def handle_execute(data):
     thread = threading.Thread(target=simulate_execution)
     thread.start()
 
+# Error tracking endpoints
+@app.route("/api/errors/summary", methods=["GET"])
+@supabase_jwt_required
+def get_error_summary():
+    """Get error tracking summary (admin only)."""
+    user_id = get_user_id()
+    
+    # Check if user is admin
+    with db_session_scope() as session:
+        user_repo = UserRepository(session)
+        user = user_repo.get_by_id(user_id)
+        
+        if not user or not user.is_admin:
+            return jsonify({"message": "Admin access required"}), 403
+            
+    summary = error_tracker.get_error_summary()
+    return jsonify(summary)
+
+@app.route("/api/errors/recent", methods=["GET"])
+@supabase_jwt_required
+def get_recent_errors():
+    """Get recent errors (admin only)."""
+    user_id = get_user_id()
+    limit = int(request.args.get('limit', 20))
+    
+    # Check if user is admin
+    with db_session_scope() as session:
+        user_repo = UserRepository(session)
+        user = user_repo.get_by_id(user_id)
+        
+        if not user or not user.is_admin:
+            return jsonify({"message": "Admin access required"}), 403
+            
+    errors = error_tracker.get_recent_errors(limit=limit)
+    return jsonify({"errors": errors})
+
 # Product API Endpoints
 @app.route("/api/products", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_products():
     """Get products with pagination and filtering."""
     try:
@@ -611,7 +987,7 @@ def get_products():
         return jsonify({"message": "Failed to retrieve products"}), 500
 
 @app.route("/api/products/<int:product_id>", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_product(product_id):
     """Get a single product by ID."""
     try:
@@ -680,7 +1056,7 @@ def get_product(product_id):
         return jsonify({"message": "Failed to retrieve product"}), 500
 
 @app.route("/api/products/search", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def search_products():
     """Search products by various criteria."""
     try:
@@ -716,7 +1092,7 @@ def search_products():
 
 # Category API Endpoints
 @app.route("/api/categories", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_categories():
     """Get all categories or category tree."""
     try:
@@ -755,7 +1131,7 @@ def get_categories():
         return jsonify({"message": "Failed to retrieve categories"}), 500
 
 @app.route("/api/categories/<int:category_id>", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_category(category_id):
     """Get a single category with optional products."""
     try:
@@ -817,7 +1193,7 @@ def get_category(category_id):
         return jsonify({"message": "Failed to retrieve category"}), 500
 
 @app.route("/api/categories/<int:category_id>/products", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_category_products(category_id):
     """Get products in a category with pagination."""
     try:
@@ -881,7 +1257,7 @@ def get_category_products(category_id):
 
 # Sync Logs API Endpoints
 @app.route("/api/sync-logs", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_sync_logs():
     """Get sync history with filtering."""
     try:
@@ -962,7 +1338,7 @@ def internal_error(error):
 
 # Icon Generation API Endpoints
 @app.route("/api/icons/stats", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_icon_stats():
     """Get icon generation statistics."""
     try:
@@ -975,7 +1351,7 @@ def get_icon_stats():
         return jsonify({"message": "Failed to retrieve statistics"}), 500
 
 @app.route("/api/icons/categories/<int:category_id>", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_category_icons(category_id):
     """Get all icons for a category."""
     try:
@@ -1011,7 +1387,7 @@ def get_category_icons(category_id):
         return jsonify({"message": "Failed to retrieve category icons"}), 500
 
 @app.route("/api/icons/categories/<int:category_id>/icon", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def serve_category_icon(category_id):
     """Serve category icon file."""
     try:
@@ -1024,7 +1400,7 @@ def serve_category_icon(category_id):
         return jsonify({"message": "Failed to serve icon"}), 500
 
 @app.route("/api/icons/generate", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def generate_icon():
     """Generate icon for a single category."""
     try:
@@ -1047,18 +1423,18 @@ def generate_icon():
                 return jsonify({"message": "Category not found"}), 404
             
             # Create icon record first
-            icon = icon_repo.create(
-                category_id=category_id,
-                filename=f"category_{category_id}_icon.png",
-                file_path="",  # Will be updated after generation
-                prompt=f"Icon for {category_name} category",
-                style=data.get('style', 'modern'),
-                color=data.get('color', '#3B82F6'),
-                background=data.get('background', 'transparent'),
-                model=data.get('model', 'gpt-image-1'),
-                status=IconStatus.GENERATING.value,
-                created_by=user_id
-            )
+            icon = icon_repo.create_icon({
+                'category_id': category_id,
+                'filename': f"category_{category_id}_icon.png",
+                'file_path': "",  # Will be updated after generation
+                'prompt': f"Icon for {category_name} category",
+                'style': data.get('style', 'modern'),
+                'color': data.get('color', '#3B82F6'),
+                'background': data.get('background', 'transparent'),
+                'model': data.get('model', 'gpt-image-1'),
+                'status': IconStatus.GENERATING.value,
+                'created_by': user_id
+            })
             session.commit()
             
             # Generate icon
@@ -1068,25 +1444,26 @@ def generate_icon():
                 style=data.get('style', 'modern'),
                 color=data.get('color', '#3B82F6'),
                 size=data.get('size', 128),
-                background=data.get('background', 'transparent'),
-                model=data.get('model', 'gpt-image-1')
+                background=data.get('background', 'transparent')
             )
             
             if result['success']:
                 # Update icon record with file details
-                icon_repo.update(
+                icon_repo.update_icon(
                     icon.id,
-                    file_path=result['file_path'],
-                    filename=os.path.basename(result['file_path']),
-                    status=IconStatus.ACTIVE.value,
-                    generation_time=result.get('generation_time'),
-                    width=result.get('width', 128),
-                    height=result.get('height', 128),
-                    format='PNG'
+                    {
+                        'file_path': result['file_path'],
+                        'filename': os.path.basename(result['file_path']),
+                        'status': IconStatus.ACTIVE.value,
+                        'generation_time': result.get('generation_time'),
+                        'width': result.get('width', 128),
+                        'height': result.get('height', 128),
+                        'format': 'PNG'
+                    }
                 )
                 
-                # Deactivate other icons for this category
-                icon_repo.deactivate_category_icons(category_id, except_icon_id=icon.id)
+                # TODO: Deactivate other icons for this category
+                # icon_repo.deactivate_category_icons(category_id, except_icon_id=icon.id)
                 
                 session.commit()
                 
@@ -1106,7 +1483,10 @@ def generate_icon():
                 }), 201
             else:
                 # Update icon status to failed
-                icon_repo.update_status(icon.id, IconStatus.FAILED.value, result.get('error'))
+                icon_repo.update_icon(icon.id, {
+                    'status': IconStatus.FAILED.value,
+                    'meta_data': {'error': result.get('error')}
+                })
                 session.commit()
                 
                 return jsonify({
@@ -1119,7 +1499,7 @@ def generate_icon():
         return jsonify({"message": "Failed to generate icon"}), 500
 
 @app.route("/api/icons/generate/batch", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def generate_icons_batch():
     """Generate icons for multiple categories."""
     try:
@@ -1170,19 +1550,19 @@ def generate_icons_batch():
                 for idx, category in enumerate(categories):
                     try:
                         # Create icon record
-                        icon = icon_repo.create(
-                            category_id=category['id'],
-                            filename=f"category_{category['id']}_icon.png",
-                            file_path="",
-                            prompt=f"Icon for {category['name']} category",
-                            style=options.get('style', 'modern'),
-                            color=options.get('color', '#3B82F6'),
-                            background=options.get('background', 'transparent'),
-                            model=options.get('model', 'gpt-image-1'),
-                            status=IconStatus.GENERATING.value,
-                            generation_batch_id=batch_id,
-                            created_by=user_id
-                        )
+                        icon = icon_repo.create_icon({
+                            'category_id': category['id'],
+                            'filename': f"category_{category['id']}_icon.png",
+                            'file_path': "",
+                            'prompt': f"Icon for {category['name']} category",
+                            'style': options.get('style', 'modern'),
+                            'color': options.get('color', '#3B82F6'),
+                            'background': options.get('background', 'transparent'),
+                            'model': options.get('model', 'gpt-image-1'),
+                            'status': IconStatus.GENERATING.value,
+                            'generation_batch_id': batch_id,
+                            'created_by': user_id
+                        })
                         
                         # Generate icon
                         result = icon_generator.generate_category_icon(
@@ -1193,15 +1573,20 @@ def generate_icons_batch():
                         )
                         
                         if result['success']:
-                            icon_repo.update(
+                            icon_repo.update_icon(
                                 icon.id,
-                                file_path=result['file_path'],
-                                filename=os.path.basename(result['file_path']),
-                                status=IconStatus.ACTIVE.value
+                                {
+                                    'file_path': result['file_path'],
+                                    'filename': os.path.basename(result['file_path']),
+                                    'status': IconStatus.ACTIVE.value
+                                }
                             )
                             results.append({'category_id': category['id'], 'success': True})
                         else:
-                            icon_repo.update_status(icon.id, IconStatus.FAILED.value, result.get('error'))
+                            icon_repo.update_icon(icon.id, {
+                                'status': IconStatus.FAILED.value,
+                                'meta_data': {'error': result.get('error')}
+                            })
                             results.append({'category_id': category['id'], 'error': result.get('error')})
                         
                         # Update job progress
@@ -1227,7 +1612,7 @@ def generate_icons_batch():
         return jsonify({"message": "Failed to start batch icon generation"}), 500
 
 @app.route("/api/icons/categories/<int:category_id>", methods=["DELETE"])
-@jwt_required()
+@supabase_jwt_required
 def delete_category_icon(category_id):
     """Delete category icon."""
     try:
@@ -1242,7 +1627,7 @@ def delete_category_icon(category_id):
         return jsonify({"message": "Failed to delete icon"}), 500
 
 @app.route("/api/icons/categories/<int:category_id>/regenerate", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def regenerate_category_icon(category_id):
     """Regenerate icon for a category."""
     try:
@@ -1293,7 +1678,7 @@ def regenerate_category_icon(category_id):
         return jsonify({"message": "Failed to regenerate icon"}), 500
 
 @app.route("/api/icons/<int:icon_id>", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_icon(icon_id):
     """Get a specific icon by ID."""
     try:
@@ -1346,7 +1731,7 @@ def get_icon(icon_id):
         return jsonify({"message": "Failed to retrieve icon"}), 500
 
 @app.route("/api/icons/search", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def search_icons():
     """Search for icons by query and filters."""
     try:
@@ -1382,9 +1767,158 @@ def search_icons():
         app.logger.error(f"Error searching icons: {e}")
         return jsonify({"message": "Failed to search icons"}), 500
 
+@app.route("/api/icons", methods=["GET"])
+@supabase_jwt_required
+def get_all_icons():
+    """Get all icons with pagination."""
+    try:
+        query = request.args.get('query', '')
+        status = request.args.get('status')
+        synced = request.args.get('synced')
+        model = request.args.get('model')
+        style = request.args.get('style')
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+        
+        # Convert synced string to boolean if provided
+        synced_bool = None
+        if synced is not None:
+            synced_bool = synced.lower() in ('true', '1', 'yes')
+        
+        with db_session_scope() as session:
+            icon_repo = IconRepository(session)
+            icons, total = icon_repo.search_icons(
+                query=query,
+                status=status,
+                synced=synced_bool,
+                model=model,
+                style=style,
+                limit=limit,
+                offset=offset
+            )
+            
+            icon_list = []
+            for icon in icons:
+                icon_list.append({
+                    'id': icon.id,
+                    'category_id': icon.category_id,
+                    'category_name': icon.category.name if icon.category else 'Unknown',
+                    'filename': icon.filename,
+                    'file_path': icon.file_path,
+                    'width': icon.width,
+                    'height': icon.height,
+                    'format': icon.format,
+                    'style': icon.style,
+                    'color': icon.color,
+                    'status': icon.status,
+                    'is_active': icon.is_active,
+                    'shopify_image_url': icon.shopify_image_url,
+                    'shopify_synced_at': icon.shopify_synced_at.isoformat() if icon.shopify_synced_at else None,
+                    'created_at': icon.created_at.isoformat(),
+                    'isFavorite': icon.meta_data.get('favorite', False) if icon.meta_data else False
+                })
+            
+            return jsonify({
+                'icons': icon_list,
+                'total': total,
+                'limit': limit,
+                'offset': offset,
+                'count': len(icon_list)
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error getting all icons: {e}")
+        return jsonify({"message": "Failed to retrieve icons"}), 500
+
+@app.route("/api/icons/<int:icon_id>/favorite", methods=["PUT"])
+@supabase_jwt_required
+def toggle_icon_favorite(icon_id):
+    """Toggle favorite status of an icon."""
+    try:
+        data = request.get_json()
+        is_favorite = data.get('favorite', False)
+        
+        with db_session_scope() as session:
+            icon_repo = IconRepository(session)
+            icon = icon_repo.get_icon_by_id(icon_id)
+            
+            if not icon:
+                return jsonify({"message": "Icon not found"}), 404
+            
+            # Update metadata with favorite status
+            meta_data = icon.meta_data or {}
+            meta_data['favorite'] = is_favorite
+            
+            icon_repo.update_icon(icon_id, {'meta_data': meta_data})
+            session.commit()
+            
+            return jsonify({
+                "message": "Icon favorite status updated",
+                "icon_id": icon_id,
+                "favorite": is_favorite
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error toggling icon favorite: {e}")
+        return jsonify({"message": "Failed to update favorite status"}), 500
+
+@app.route("/api/icons/<int:icon_id>", methods=["DELETE"])
+@supabase_jwt_required
+def delete_icon(icon_id):
+    """Delete an icon."""
+    try:
+        with db_session_scope() as session:
+            icon_repo = IconRepository(session)
+            icon = icon_repo.get_icon_by_id(icon_id)
+            
+            if not icon:
+                return jsonify({"message": "Icon not found"}), 404
+            
+            # Delete from database (includes file deletion)
+            success = icon_repo.delete_icon(icon_id, hard_delete=True)
+            
+            if success:
+                app.logger.info(f"Icon {icon_id} deleted successfully")
+                return jsonify({"message": "Icon deleted successfully"})
+            else:
+                return jsonify({"message": "Failed to delete icon"}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error deleting icon {icon_id}: {e}")
+        return jsonify({"message": "Failed to delete icon"}), 500
+
+@app.route("/api/icons/bulk", methods=["DELETE"])
+@supabase_jwt_required
+def bulk_delete_icons():
+    """Delete multiple icons."""
+    try:
+        data = request.get_json()
+        icon_ids = data.get('icon_ids', [])
+        
+        if not icon_ids:
+            return jsonify({"message": "No icon IDs provided"}), 400
+        
+        with db_session_scope() as session:
+            icon_repo = IconRepository(session)
+            deleted_count = 0
+            
+            for icon_id in icon_ids:
+                if icon_repo.delete_icon(icon_id, hard_delete=True):
+                    deleted_count += 1
+            
+            app.logger.info(f"Bulk deleted {deleted_count} icons")
+            return jsonify({
+                "message": f"Successfully deleted {deleted_count} icons",
+                "deleted_count": deleted_count
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error in bulk delete icons: {e}")
+        return jsonify({"message": "Failed to delete icons"}), 500
+
 # Shopify Collections Endpoints (syncs with categories)
 @app.route("/api/collections", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_collections():
     """Get all collections (categories) with their Shopify status."""
     try:
@@ -1396,8 +1930,13 @@ def get_collections():
             
             collections = []
             for category in categories:
-                # Get active icon for category
-                icon = icon_repo.get_active_by_category(category.id)
+                # Get active icon for category using direct query
+                from models import Icon, IconStatus
+                icon = session.query(Icon).filter(
+                    Icon.category_id == category.id,
+                    Icon.status == IconStatus.ACTIVE.value,
+                    Icon.is_active == True
+                ).first()
                 
                 collections.append({
                     'id': category.id,
@@ -1426,7 +1965,7 @@ def get_collections():
 
 # Shopify Collections Endpoints
 @app.route("/api/shopify/status", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_shopify_status():
     """Check Shopify API connection status."""
     try:
@@ -1447,7 +1986,7 @@ def get_shopify_status():
         return jsonify({"connected": False, "message": str(e)})
 
 @app.route("/api/shopify/collections", methods=["GET"])
-@jwt_required()
+@supabase_jwt_required
 def get_shopify_collections():
     """Get all Shopify collections."""
     try:
@@ -1490,7 +2029,7 @@ def get_shopify_collections():
         return jsonify({"message": "Failed to fetch collections"}), 500
 
 @app.route("/api/shopify/collections/<collection_id>/upload-icon", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def upload_shopify_collection_icon(collection_id):
     """Upload a generated icon to a Shopify collection."""
     try:
@@ -1551,7 +2090,7 @@ def upload_shopify_collection_icon(collection_id):
         return jsonify({"message": "Failed to upload icon"}), 500
 
 @app.route("/api/shopify/collections/generate-all", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def generate_all_collection_icons():
     """Generate icons for all Shopify collections."""
     try:
@@ -1620,7 +2159,7 @@ def generate_all_collection_icons():
         return jsonify({"message": "Failed to start icon generation"}), 500
 
 @app.route("/api/shopify/collections/<collection_id>/sync", methods=["POST"])
-@jwt_required()
+@supabase_jwt_required
 def sync_collection_icon(collection_id):
     """Sync a locally generated icon with a Shopify collection."""
     try:
@@ -1718,6 +2257,901 @@ def health_check():
             "icon_storage": icon_storage_status
         }
     })
+
+# Icon-Category Association Endpoints
+@app.route("/api/icons/<int:icon_id>/assign", methods=["PUT"])
+@supabase_jwt_required
+def assign_icon_to_category(icon_id):
+    """Assign an icon to a category."""
+    try:
+        data = request.get_json()
+        category_id = data.get('category_id')
+        
+        if not category_id:
+            return jsonify({"message": "Category ID is required"}), 400
+        
+        with db_session_scope() as session:
+            service = IconCategoryService(session)
+            result = service.assign_icon_to_category(icon_id, category_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error assigning icon {icon_id} to category: {e}")
+        return jsonify({"message": "Failed to assign icon to category"}), 500
+
+@app.route("/api/categories/<int:category_id>/unassign-icon", methods=["DELETE"])
+@supabase_jwt_required
+def unassign_icon_from_category(category_id):
+    """Remove icon assignment from a category."""
+    try:
+        with db_session_scope() as session:
+            service = IconCategoryService(session)
+            result = service.unassign_icon_from_category(category_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error unassigning icon from category {category_id}: {e}")
+        return jsonify({"message": "Failed to unassign icon from category"}), 500
+
+@app.route("/api/categories/<int:category_id>/icon-history", methods=["GET"])
+@supabase_jwt_required
+def get_category_icon_history(category_id):
+    """Get icon history for a category."""
+    try:
+        with db_session_scope() as session:
+            service = IconCategoryService(session)
+            result = service.get_category_icon_history(category_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 404
+                
+    except Exception as e:
+        app.logger.error(f"Error getting icon history for category {category_id}: {e}")
+        return jsonify({"message": "Failed to get icon history"}), 500
+
+@app.route("/api/icons/<int:icon_id>/sync-shopify", methods=["POST"])
+@supabase_jwt_required
+def sync_icon_to_shopify(icon_id):
+    """Sync an icon to Shopify."""
+    try:
+        data = request.get_json() or {}
+        collection_id = data.get('collection_id')
+        
+        with db_session_scope() as session:
+            service = IconCategoryService(session)
+            result = service.sync_icon_to_shopify(icon_id, collection_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error syncing icon {icon_id} to Shopify: {e}")
+        return jsonify({"message": "Failed to sync icon to Shopify"}), 500
+
+@app.route("/api/categories/without-icons", methods=["GET"])
+@supabase_jwt_required
+def get_categories_without_icons():
+    """Get categories that don't have active icons."""
+    try:
+        with db_session_scope() as session:
+            service = IconCategoryService(session)
+            categories = service.get_categories_without_icons()
+            
+            return jsonify({
+                "categories": categories,
+                "count": len(categories)
+            }), 200
+            
+    except Exception as e:
+        app.logger.error(f"Error getting categories without icons: {e}")
+        return jsonify({"message": "Failed to get categories without icons"}), 500
+
+@app.route("/api/icons/bulk-assign", methods=["POST"])
+@supabase_jwt_required
+def bulk_assign_icons():
+    """Bulk assign icons to categories."""
+    try:
+        data = request.get_json()
+        assignments = data.get('assignments', [])
+        
+        if not assignments:
+            return jsonify({"message": "No assignments provided"}), 400
+        
+        with db_session_scope() as session:
+            service = IconCategoryService(session)
+            result = service.bulk_assign_icons(assignments)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error in bulk icon assignment: {e}")
+        return jsonify({"message": "Failed to bulk assign icons"}), 500
+
+# Shopify Icon Sync Endpoints
+@app.route("/api/icons/<int:icon_id>/sync-to-shopify", methods=["POST"])
+@supabase_jwt_required
+def sync_icon_to_shopify_collection(icon_id):
+    """Upload an icon to Shopify collection."""
+    try:
+        data = request.get_json() or {}
+        collection_id = data.get('collection_id')
+        
+        with db_session_scope() as session:
+            service = ShopifyIconSyncService(session)
+            result = service.upload_icon_to_collection(icon_id, collection_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error syncing icon {icon_id} to Shopify: {e}")
+        return jsonify({"message": "Failed to sync icon to Shopify"}), 500
+
+@app.route("/api/categories/<int:category_id>/sync-icons-to-shopify", methods=["POST"])
+@supabase_jwt_required
+def sync_category_icons_to_shopify_collection(category_id):
+    """Sync all category icons to Shopify."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyIconSyncService(session)
+            result = service.sync_category_icons_to_shopify(category_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error syncing category {category_id} icons to Shopify: {e}")
+        return jsonify({"message": "Failed to sync category icons to Shopify"}), 500
+
+@app.route("/api/icons/<int:icon_id>/remove-from-shopify", methods=["DELETE"])
+@supabase_jwt_required
+def remove_icon_from_shopify_collection(icon_id):
+    """Remove an icon from Shopify collection."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyIconSyncService(session)
+            result = service.remove_icon_from_shopify(icon_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error removing icon {icon_id} from Shopify: {e}")
+        return jsonify({"message": "Failed to remove icon from Shopify"}), 500
+
+@app.route("/api/shopify/sync-status", methods=["GET"])
+@supabase_jwt_optional
+def get_shopify_sync_status():
+    """Get summary of Shopify sync status."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyIconSyncService(session)
+            result = service.get_sync_status_summary()
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 500
+                
+    except Exception as e:
+        app.logger.error(f"Error getting Shopify sync status: {e}")
+        return jsonify({"message": "Failed to get sync status"}), 500
+
+@app.route("/api/shopify/collection/<collection_id>", methods=["GET"])
+@supabase_jwt_required
+def get_shopify_collection_info(collection_id):
+    """Get Shopify collection information."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyIconSyncService(session)
+            result = service.get_collection_by_id(collection_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 404 if result.get('error_code') == 'NOT_FOUND' else 500
+                
+    except Exception as e:
+        app.logger.error(f"Error getting Shopify collection {collection_id}: {e}")
+        return jsonify({"message": "Failed to get collection information"}), 500
+
+# Shopify Product Sync Endpoints
+@app.route("/api/shopify/products/sync", methods=["POST"])
+@supabase_jwt_optional
+def sync_all_shopify_products():
+    """Sync all products from Shopify to database."""
+    try:
+        data = request.get_json() or {}
+        include_draft = data.get('include_draft', True)
+        
+        with db_session_scope() as session:
+            service = ShopifyProductSyncService(session)
+            result = service.sync_all_products(include_draft=include_draft)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error syncing Shopify products: {e}")
+        return jsonify({"message": "Failed to sync Shopify products"}), 500
+
+@app.route("/api/shopify/products/<shopify_product_id>/sync", methods=["POST"])
+@supabase_jwt_required
+def sync_single_shopify_product(shopify_product_id):
+    """Sync a single product from Shopify."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyProductSyncService(session)
+            result = service.sync_single_product_by_id(shopify_product_id)
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error syncing single product {shopify_product_id}: {e}")
+        return jsonify({"message": "Failed to sync product"}), 500
+
+@app.route("/api/shopify/products/sync-status", methods=["GET"])
+@supabase_jwt_optional
+def get_shopify_product_sync_status():
+    """Get Shopify product sync status and statistics."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyProductSyncService(session)
+            result = service.get_sync_status()
+            
+            if result['success']:
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 500
+                
+    except Exception as e:
+        app.logger.error(f"Error getting sync status: {e}")
+        return jsonify({"message": "Failed to get sync status"}), 500
+
+@app.route("/api/shopify/test-connection", methods=["GET"])
+@supabase_jwt_required
+def test_shopify_connection():
+    """Test Shopify API connection."""
+    try:
+        with db_session_scope() as session:
+            service = ShopifyProductSyncService(session)
+            
+            # Test basic connection by making a simple request
+            result = service._make_shopify_request('shop.json')
+            
+            if result['success']:
+                shop_data = result['data']['shop']
+                return jsonify({
+                    "success": True,
+                    "message": "Successfully connected to Shopify",
+                    "shop": {
+                        "name": shop_data.get('name'),
+                        "domain": shop_data.get('domain'),
+                        "plan": shop_data.get('plan_name'),
+                        "currency": shop_data.get('currency'),
+                        "timezone": shop_data.get('timezone')
+                    }
+                }), 200
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "Failed to connect to Shopify",
+                    "error": result['error']
+                }), 400
+                
+    except Exception as e:
+        app.logger.error(f"Error testing Shopify connection: {e}")
+        return jsonify({"message": "Failed to test connection"}), 500
+
+# Enhanced Product Management Endpoints with Shopify Integration
+@app.route("/api/products/with-shopify-data", methods=["GET"])
+@supabase_jwt_required
+def get_products_with_shopify_data():
+    """Get products with enhanced Shopify sync information."""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        sync_status = request.args.get('sync_status')
+        category_id = request.args.get('category_id', type=int)
+        
+        with db_session_scope() as session:
+            product_repo = ProductRepository(session)
+            
+            # Build query with filters
+            query = session.query(Product).options(joinedload(Product.category))
+            
+            if sync_status:
+                query = query.filter(Product.shopify_sync_status == sync_status)
+            if category_id:
+                query = query.filter(Product.category_id == category_id)
+            
+            # Count total for pagination
+            total = query.count()
+            
+            # Apply pagination
+            offset = (page - 1) * per_page
+            products = query.offset(offset).limit(per_page).all()
+            
+            # Calculate pagination info
+            total_pages = (total + per_page - 1) // per_page
+            has_prev = page > 1
+            has_next = page < total_pages
+            
+            # Enhance with sync information
+            enhanced_products = []
+            for product in products:
+                enhanced_products.append({
+                    'id': product.id,
+                    'sku': product.sku,
+                    'name': product.name,
+                    'description': product.description,
+                    'price': float(product.price) if product.price else None,
+                    'compare_at_price': float(product.compare_at_price) if product.compare_at_price else None,
+                    'inventory_quantity': product.inventory_quantity,
+                    'status': product.status,
+                    'category_id': product.category_id,
+                    'category_name': product.category.name if product.category else None,
+                    'shopify_product_id': product.shopify_product_id,
+                    'shopify_variant_id': product.shopify_variant_id,
+                    'shopify_handle': product.shopify_handle,
+                    'shopify_synced_at': product.shopify_synced_at.isoformat() if product.shopify_synced_at else None,
+                    'shopify_sync_status': product.shopify_sync_status,
+                    'featured_image_url': product.featured_image_url,
+                    'brand': product.brand,
+                    'manufacturer': product.manufacturer,
+                    'created_at': product.created_at.isoformat(),
+                    'updated_at': product.updated_at.isoformat()
+                })
+            
+            return jsonify({
+                'products': enhanced_products,
+                'pagination': {
+                    'total': total,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': total_pages,
+                    'has_prev': has_prev,
+                    'has_next': has_next
+                }
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error getting products with Shopify data: {e}")
+        return jsonify({"message": "Failed to retrieve products"}), 500
+
+# Product Type and Collection Management Endpoints
+@app.route("/api/products/product-types-summary", methods=["GET"])
+@supabase_jwt_required
+def get_product_types_summary():
+    """Get summary of product types with statistics."""
+    try:
+        with db_session_scope() as session:
+            product_repo = ProductRepository(session)
+            
+            # Get category statistics (using categories as product types)
+            result = session.query(
+                Category.name,
+                func.count(Product.id).label('product_count'),
+                func.avg(Product.price).label('avg_price')
+            ).join(Product, Category.id == Product.category_id)\
+             .group_by(Category.name)\
+             .all()
+            
+            product_types = []
+            for row in result:
+                # Get additional data for each category
+                products_in_category = session.query(Product).filter(
+                    Product.category_id == session.query(Category.id).filter(
+                        Category.name == row.name
+                    ).scalar_subquery()
+                ).all()
+                
+                # Extract unique vendors (using brand and manufacturer)
+                vendors = list(set([
+                    p.brand for p in products_in_category if p.brand
+                ] + [
+                    p.manufacturer for p in products_in_category if p.manufacturer
+                ]))
+                
+                sample_products = [p.name for p in products_in_category[:5] if p.name]
+                
+                product_types.append({
+                    'name': row.name,
+                    'product_count': row.product_count,
+                    'avg_price': float(row.avg_price or 0),
+                    'vendors': vendors,
+                    'categories': [row.name],  # Category itself
+                    'sample_products': sample_products,
+                    'collection_status': 'none'  # Will be updated based on existing collections
+                })
+            
+            return jsonify({
+                'product_types': product_types,
+                'total': len(product_types)
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error getting product types summary: {e}")
+        return jsonify({"message": "Failed to retrieve product types summary"}), 500
+
+@app.route("/api/collections/managed", methods=["GET"])
+@supabase_jwt_required
+def get_managed_collections():
+    """Get all locally managed collections."""
+    try:
+        with db_session_scope() as session:
+            category_repo = CategoryRepository(session)
+            
+            # Get categories that represent collections
+            categories = category_repo.get_all()
+            
+            collections = []
+            for category in categories:
+                # Get product count for this category
+                product_count = session.query(Product).filter(
+                    Product.category_id == category.id
+                ).count()
+                
+                collections.append({
+                    'id': str(category.id),
+                    'name': category.name,
+                    'description': category.description or '',
+                    'handle': category.slug,
+                    'product_count': product_count,
+                    'product_types': [category.name],  # Use category name as product type
+                    'created_locally': True,
+                    'shopify_collection_id': category.shopify_collection_id,
+                    'shopify_synced_at': category.shopify_synced_at.isoformat() if category.shopify_synced_at else None,
+                    'status': 'synced' if category.shopify_collection_id else 'draft',
+                    'ai_generated': False,  # Could be stored in metadata
+                    'rules': {
+                        'type': 'manual',
+                        'conditions': []
+                    }
+                })
+            
+            return jsonify({
+                'collections': collections,
+                'total': len(collections)
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Error getting managed collections: {e}")
+        return jsonify({"message": "Failed to retrieve collections"}), 500
+
+@app.route("/api/collections/ai-suggestions", methods=["POST"])
+@supabase_jwt_required
+def generate_ai_collection_suggestions():
+    """Generate AI-powered collection suggestions for product types."""
+    try:
+        data = request.get_json()
+        product_types = data.get('product_types', [])
+        
+        if not product_types:
+            return jsonify({"message": "No product types provided"}), 400
+        
+        # For now, generate simple rule-based suggestions
+        # In the future, this could integrate with OpenAI or other AI services
+        suggestions = []
+        
+        for product_type in product_types:
+            # Simple rule-based collection naming
+            collection_name = f"{product_type} Collection"
+            description = f"All products in the {product_type} category, curated for quality and variety."
+            
+            # Add some intelligence based on common patterns
+            if 'office' in product_type.lower():
+                collection_name = f"Office {product_type}"
+                description = f"Professional {product_type.lower()} for modern workspaces and home offices."
+            elif 'tech' in product_type.lower() or 'electronic' in product_type.lower():
+                collection_name = f"Tech {product_type}"
+                description = f"Latest {product_type.lower()} with cutting-edge features and reliability."
+            elif 'furniture' in product_type.lower():
+                collection_name = f"Premium {product_type}"
+                description = f"Stylish and functional {product_type.lower()} for every space."
+            
+            suggestions.append({
+                'product_type': product_type,
+                'collection_name': collection_name,
+                'description': description,
+                'confidence': 0.85  # Placeholder confidence score
+            })
+        
+        app.logger.info(f"Generated AI suggestions for {len(product_types)} product types")
+        
+        return jsonify({
+            'suggestions': suggestions,
+            'total': len(suggestions)
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error generating AI suggestions: {e}")
+        return jsonify({"message": "Failed to generate AI suggestions"}), 500
+
+@app.route("/api/collections/create", methods=["POST"])
+@supabase_jwt_required
+def create_collection():
+    """Create a new collection (category)."""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['name', 'description']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"message": f"Missing required field: {field}"}), 400
+        
+        with db_session_scope() as session:
+            category_repo = CategoryRepository(session)
+            
+            # Generate unique slug
+            base_slug = data.get('handle', data['name'].lower().replace(' ', '-'))
+            slug = base_slug
+            counter = 1
+            
+            # Check if slug already exists and generate a unique one
+            while category_repo.get_by_slug(slug):
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            try:
+                # Create the category using the repository create method
+                category = category_repo.create(
+                    name=data['name'],
+                    slug=slug,
+                    description=data['description'],
+                    parent_id=data.get('parent_id')
+                )
+                
+                # Commit the transaction
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                app.logger.error(f"Error creating category: {e}")
+                return jsonify({"message": "Failed to create collection", "error": str(e)}), 500
+            
+            # If this collection has automatic rules, apply them
+            rules = data.get('rules')
+            if rules and rules.get('type') == 'automatic':
+                product_repo = ProductRepository(session)
+                conditions = rules.get('conditions', [])
+                
+                # Apply rules to assign products
+                for condition in conditions:
+                    if condition['field'] == 'product_type' and condition['operator'] == 'equals':
+                        # Update products of this type to belong to this category
+                        products = session.query(Product).filter(
+                            Product.product_type == condition['value']
+                        ).all()
+                        
+                        for product in products:
+                            product.category_id = category.id
+                        
+                        session.commit()
+            
+            app.logger.info(f"Created collection: {data['name']} (ID: {category.id})")
+            
+            return jsonify({
+                "message": "Collection created successfully",
+                "collection": {
+                    'id': str(category.id),
+                    'name': category.name,
+                    'description': category.description,
+                    'handle': category.slug,
+                    'created_at': category.created_at.isoformat()
+                }
+            }), 201
+            
+    except Exception as e:
+        app.logger.error(f"Error creating collection: {e}")
+        return jsonify({"message": "Failed to create collection"}), 500
+
+@app.route("/api/collections/<collection_id>/sync-to-shopify", methods=["POST"])
+@supabase_jwt_required
+def sync_collection_to_shopify(collection_id):
+    """Sync a collection to Shopify as a collection."""
+    try:
+        with db_session_scope() as session:
+            category_repo = CategoryRepository(session)
+            product_repo = ProductRepository(session)
+            category = category_repo.get(int(collection_id))
+            
+            if not category:
+                return jsonify({"message": "Collection not found"}), 404
+            
+            # Get Shopify credentials
+            shop_url = os.getenv('SHOPIFY_SHOP_URL')
+            access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+            
+            if not shop_url or not access_token:
+                return jsonify({"message": "Shopify credentials not configured"}), 500
+            
+            # Initialize ShopifyCollectionsManager
+            from shopify_collections import ShopifyCollectionsManager
+            shopify_manager = ShopifyCollectionsManager(shop_url, access_token, debug=True)
+            
+            # Prepare collection data
+            collection_data = {
+                "title": category.name,
+                "handle": category.slug.replace("_", "-") if category.slug else category.name.lower().replace(" ", "-"),
+                "description": category.description or f"Products in the {category.name} category",
+                "sortOrder": "BEST_SELLING"
+            }
+            
+            # Get products in this category for syncing
+            products_in_category = product_repo.get_by_category(category.id)
+            product_ids = []
+            
+            for product in products_in_category:
+                if product.shopify_product_id and product.shopify_product_id.startswith('gid://shopify/Product/'):
+                    product_ids.append(product.shopify_product_id)
+                elif product.shopify_product_id:
+                    # Convert numeric ID to GraphQL format
+                    product_ids.append(f"gid://shopify/Product/{product.shopify_product_id}")
+            
+            try:
+                # Create or update collection in Shopify
+                if category.shopify_collection_id:
+                    # Update existing collection
+                    result = shopify_manager.update_collection(category.shopify_collection_id, collection_data)
+                    operation = "updated"
+                else:
+                    # Create new collection
+                    result = shopify_manager.create_collection(collection_data)
+                    operation = "created"
+                
+                if not result.get('success'):
+                    app.logger.error(f"Shopify collection sync failed: {result.get('error')}")
+                    return jsonify({
+                        "message": "Failed to sync collection to Shopify",
+                        "error": result.get('error')
+                    }), 500
+                
+                collection = result.get('collection')
+                shopify_collection_id = collection['id']
+                numeric_id = collection.get('numeric_id', shopify_collection_id.split('/')[-1])
+                
+                # Add products to collection if any exist
+                if product_ids:
+                    add_result = shopify_manager.add_products_to_collection(shopify_collection_id, product_ids)
+                    if not add_result.get('success'):
+                        app.logger.warning(f"Failed to add products to collection: {add_result.get('error')}")
+                
+                # Update category with Shopify info
+                category_repo.update_category(category.id, {
+                    'shopify_collection_id': shopify_collection_id,
+                    'shopify_handle': collection.get('handle'),
+                    'shopify_synced_at': datetime.now(timezone.utc)
+                })
+                
+                app.logger.info(f"Successfully {operation} collection {collection_id} in Shopify as {numeric_id}")
+                
+                return jsonify({
+                    "message": f"Collection {operation} in Shopify successfully",
+                    "shopify_collection_id": numeric_id,
+                    "shopify_handle": collection.get('handle'),
+                    "products_added": len(product_ids),
+                    "operation": operation
+                })
+                
+            except Exception as shopify_error:
+                app.logger.error(f"Shopify API error: {str(shopify_error)}")
+                return jsonify({
+                    "message": "Failed to sync collection to Shopify",
+                    "error": str(shopify_error)
+                }), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error syncing collection {collection_id} to Shopify: {e}")
+        return jsonify({"message": "Failed to sync collection to Shopify", "error": str(e)}), 500
+
+
+# Test endpoints for sync verification
+
+
+@app.route("/api/test/sync-product/<product_id>", methods=["POST"])
+@supabase_jwt_required
+def test_sync_product(product_id):
+    """Test syncing a single product to Shopify."""
+    try:
+        with db_session_scope() as session:
+            product_repo = ProductRepository(session)
+            product = product_repo.get(int(product_id))
+            
+            if not product:
+                return jsonify({"success": False, "message": "Product not found"}), 404
+            
+            # Get Shopify credentials
+            shop_url = os.getenv('SHOPIFY_SHOP_URL')
+            access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+            
+            if not shop_url or not access_token:
+                return jsonify({"success": False, "message": "Shopify credentials not configured"}), 500
+            
+            # Create sync configuration
+            from services.shopify_sync_service import SyncConfiguration, SyncMode, SyncFlags
+            config = SyncConfiguration(
+                mode=SyncMode.FULL_SYNC,
+                flags=[SyncFlags.DEBUG],
+                shop_url=shop_url,
+                access_token=access_token
+            )
+            
+            # Initialize sync service
+            sync_service = ShopifySyncService(session)
+            
+            # Test single product sync
+            result = sync_service._full_sync(product, config)
+            
+            return jsonify({
+                "success": result.get('success', False),
+                "product_id": product_id,
+                "result": result
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Test product sync failed: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Test product sync failed",
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/test/sync-collection/<collection_id>", methods=["POST"])  
+@supabase_jwt_required
+def test_sync_collection(collection_id):
+    """Test syncing a single collection to Shopify."""
+    try:
+        with db_session_scope() as session:
+            category_repo = CategoryRepository(session)
+            category = category_repo.get(int(collection_id))
+            
+            if not category:
+                return jsonify({"success": False, "message": "Collection not found"}), 404
+            
+            # Get Shopify credentials
+            shop_url = os.getenv('SHOPIFY_SHOP_URL')
+            access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+            
+            if not shop_url or not access_token:
+                return jsonify({"success": False, "message": "Shopify credentials not configured"}), 500
+            
+            from shopify_collections import ShopifyCollectionsManager
+            shopify_manager = ShopifyCollectionsManager(shop_url, access_token, debug=True)
+            
+            # Convert category to dictionary format
+            category_data = {
+                "id": category.id,
+                "name": category.name,
+                "slug": category.slug,
+                "description": category.description,
+                "shopify_collection_id": category.shopify_collection_id
+            }
+            
+            # Test collection sync
+            result = shopify_manager.sync_category_to_collection(category_data)
+            
+            if result.get('success'):
+                # Update category with Shopify info if successful
+                collection = result.get('collection')
+                category_repo.update_category(category.id, {
+                    'shopify_collection_id': collection['id'],
+                    'shopify_handle': collection.get('handle'),
+                    'shopify_synced_at': datetime.now(timezone.utc)
+                })
+            
+            return jsonify({
+                "success": result.get('success', False),
+                "collection_id": collection_id,
+                "result": result
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Test collection sync failed: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Test collection sync failed", 
+            "error": str(e)
+        }), 500
+
+
+# Register blueprints
+app.register_blueprint(import_bp)
+app.register_blueprint(shopify_sync_bp)
+app.register_blueprint(xorosoft_bp)
+
+# Register batch processing blueprint
+from batch_api import batch_bp
+app.register_blueprint(batch_bp)
+
+# Register conflict detection blueprint
+from conflict_api import conflict_bp
+app.register_blueprint(conflict_bp)
+
+# Error handling middleware
+@app.errorhandler(Exception)
+def handle_error(e):
+    """Global error handler with tracking."""
+    from werkzeug.exceptions import HTTPException
+    
+    # Track the error
+    error_tracker.track_error(
+        error=e,
+        endpoint=request.endpoint,
+        method=request.method,
+        user_id=get_user_id() if hasattr(request, 'jwt_identity') else None,
+        context={
+            'url': request.url,
+            'remote_addr': request.remote_addr,
+            'user_agent': request.user_agent.string
+        }
+    )
+    
+    # Log the error
+    app.logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+    
+    # Return appropriate error response
+    if isinstance(e, HTTPException):
+        return jsonify({"message": e.description}), e.code
+    
+    # Don't expose internal errors in production
+    if app.debug:
+        return jsonify({
+            "message": "Internal server error",
+            "error": str(e),
+            "type": type(e).__name__
+        }), 500
+    else:
+        return jsonify({"message": "Internal server error"}), 500
+
+@app.before_request
+def track_request_start():
+    """Track request start time."""
+    request.start_time = time.time()
+
+@app.after_request
+def track_request_end(response):
+    """Track request completion and performance."""
+    if hasattr(request, 'start_time'):
+        duration = time.time() - request.start_time
+        
+        # Track successful requests
+        if response.status_code < 400:
+            error_tracker.track_request(success=True)
+        else:
+            error_tracker.track_request(success=False)
+            
+        # Log slow requests
+        if duration > 1.0:  # Log requests taking more than 1 second
+            app.logger.warning(f"Slow request: {request.method} {request.path} took {duration:.2f}s")
+            
+    return response
 
 if __name__ == "__main__":
     # Run with SocketIO

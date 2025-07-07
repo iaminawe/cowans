@@ -50,6 +50,7 @@ class User(Base):
     last_name = Column(String(100))
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    supabase_id = Column(String(255), unique=True, index=True)  # Supabase user ID
     last_login = Column(DateTime)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
@@ -160,6 +161,10 @@ class Product(Base):
     shopify_handle = Column(String(255))
     shopify_synced_at = Column(DateTime)
     shopify_sync_status = Column(String(20), default=SyncStatus.PENDING.value)
+    shopify_id = Column(String(50), index=True)  # Alternative field name for compatibility
+    shopify_status = Column(String(20), default='pending')
+    last_synced = Column(DateTime)
+    title = Column(String(500))  # Alternative field name for name
     
     # Images
     featured_image_url = Column(String(1000))
@@ -169,12 +174,30 @@ class Product(Base):
     metafields = Column(JSON)
     custom_attributes = Column(JSON)
     
+    # Etilize integration fields
+    etilize_id = Column(String(100), index=True)
+    primary_source = Column(String(50), default='manual')
+    source_priority = Column(Integer, default=100)
+    data_sources = Column(JSON)  # Track all contributing sources
+    import_batch_id = Column(Integer, ForeignKey('etilize_import_batches.id'))
+    last_imported = Column(DateTime)
+    import_errors = Column(JSON)
+    has_conflicts = Column(Boolean, default=False)
+    conflict_resolution = Column(JSON)
+    manual_overrides = Column(JSON)
+    etilize_data = Column(JSON)
+    computed_fields = Column(JSON)
+    data_quality_score = Column(Float, default=0.0)
+    completeness_score = Column(Float, default=0.0)
+    
     # Audit fields
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     
     # Relationships
     category = relationship("Category", back_populates="products")
+    sources = relationship("ProductSource", back_populates="product")
+    import_batch = relationship("EtilizeImportBatch")
     
     # Indexes
     __table_args__ = (
@@ -184,6 +207,11 @@ class Product(Base):
         Index('idx_product_category', 'category_id'),
         Index('idx_product_status', 'status'),
         Index('idx_product_brand', 'brand'),
+        Index('idx_product_etilize', 'etilize_id'),
+        Index('idx_product_source', 'primary_source'),
+        Index('idx_product_import_batch', 'import_batch_id'),
+        Index('idx_product_conflicts', 'has_conflicts'),
+        Index('idx_product_quality', 'data_quality_score'),
     )
     
     @validates('sku')
@@ -585,6 +613,396 @@ class Configuration(Base):
     
     def __repr__(self):
         return f"<Configuration(key='{self.key}', category='{self.category}')>"
+
+# Enhanced Models for Etilize Import System
+
+class ImportBatchStatus(enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    VALIDATING = "validating"
+    IMPORTING = "importing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+class ProcessingStatus(enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    VALIDATED = "validated"
+    MAPPED = "mapped"
+    IMPORTED = "imported"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+class ConflictResolution(enum.Enum):
+    ETILIZE_PRIORITY = "etilize_priority"
+    MANUAL_PRIORITY = "manual_priority"
+    SHOPIFY_PRIORITY = "shopify_priority"
+    MERGE_FIELDS = "merge_fields"
+    TIMESTAMP_BASED = "timestamp_based"
+
+class EtilizeImportBatch(Base):
+    """Track Etilize import batches with comprehensive metadata."""
+    __tablename__ = 'etilize_import_batches'
+    
+    id = Column(Integer, primary_key=True)
+    batch_uuid = Column(String(36), unique=True, nullable=False, index=True)
+    
+    # Import details
+    import_type = Column(String(50), nullable=False)  # full, incremental, manual
+    source_file_path = Column(String(1000), nullable=False)
+    source_file_hash = Column(String(64), nullable=False)
+    source_file_size = Column(Integer, nullable=False)
+    source_file_modified = Column(DateTime, nullable=False)
+    
+    # Processing status
+    status = Column(String(20), default='pending', nullable=False)
+    stage = Column(String(50), default='initialization')
+    progress = Column(Integer, default=0)
+    
+    # Timing
+    started_at = Column(DateTime, nullable=False, default=func.now())
+    completed_at = Column(DateTime)
+    duration = Column(Integer)  # seconds
+    
+    # Statistics
+    total_records = Column(Integer, default=0)
+    records_processed = Column(Integer, default=0)
+    records_imported = Column(Integer, default=0)
+    records_updated = Column(Integer, default=0)
+    records_failed = Column(Integer, default=0)
+    records_skipped = Column(Integer, default=0)
+    
+    # Error handling
+    error_count = Column(Integer, default=0)
+    warning_count = Column(Integer, default=0)
+    error_details = Column(JSON)
+    
+    # User and job tracking
+    triggered_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    job_id = Column(Integer, ForeignKey('jobs.id'))
+    
+    # Metadata
+    import_config = Column(JSON)
+    meta_data = Column(JSON)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    
+    # Relationships
+    user = relationship("User")
+    job = relationship("Job")
+    staging_products = relationship("EtilizeStagingProduct", back_populates="batch")
+    
+    __table_args__ = (
+        Index('idx_batch_status', 'status'),
+        Index('idx_batch_type', 'import_type'),
+        Index('idx_batch_started', 'started_at'),
+        Index('idx_batch_user', 'triggered_by'),
+    )
+    
+    def __repr__(self):
+        return f"<EtilizeImportBatch(id={self.id}, batch_uuid='{self.batch_uuid}', status='{self.status}')>"
+
+class EtilizeStagingProduct(Base):
+    """Staging table for Etilize products before processing."""
+    __tablename__ = 'etilize_staging_products'
+    
+    id = Column(Integer, primary_key=True)
+    batch_id = Column(Integer, ForeignKey('etilize_import_batches.id'), nullable=False)
+    
+    # Raw Etilize data
+    etilize_id = Column(String(100), index=True)
+    raw_data = Column(JSON, nullable=False)
+    
+    # Extracted key fields
+    title = Column(String(1000))
+    sku = Column(String(200), index=True)
+    manufacturer_part_number = Column(String(200), index=True)
+    brand = Column(String(200))
+    manufacturer = Column(String(200))
+    description = Column(Text)
+    price = Column(Float)
+    
+    # Processing status
+    processing_status = Column(String(20), default='pending')
+    validation_status = Column(String(20), default='pending')
+    mapping_status = Column(String(20), default='pending')
+    
+    # Validation results
+    validation_errors = Column(JSON)
+    validation_warnings = Column(JSON)
+    
+    # Mapping results
+    mapped_product_id = Column(Integer, ForeignKey('products.id'))
+    mapping_confidence = Column(Float, default=0.0)
+    mapping_method = Column(String(50))
+    mapping_details = Column(JSON)
+    
+    # Processing metadata
+    processed_at = Column(DateTime)
+    error_message = Column(Text)
+    
+    # Audit
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    batch = relationship("EtilizeImportBatch", back_populates="staging_products")
+    mapped_product = relationship("Product")
+    
+    __table_args__ = (
+        Index('idx_staging_batch', 'batch_id'),
+        Index('idx_staging_sku', 'sku'),
+        Index('idx_staging_mpn', 'manufacturer_part_number'),
+        Index('idx_staging_processing', 'processing_status'),
+        Index('idx_staging_validation', 'validation_status'),
+        Index('idx_staging_mapping', 'mapping_status'),
+    )
+    
+    def __repr__(self):
+        return f"<EtilizeStagingProduct(id={self.id}, sku='{self.sku}', status='{self.processing_status}')>"
+
+class ProductSource(Base):
+    """Track product data sources and their priority."""
+    __tablename__ = 'product_sources'
+    
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    
+    # Source information
+    source_type = Column(String(50), nullable=False)  # etilize, manual, shopify
+    source_priority = Column(Integer, default=100)  # Lower = higher priority
+    source_identifier = Column(String(200))
+    source_url = Column(String(1000))
+    
+    # Source metadata
+    source_data = Column(JSON)
+    last_updated = Column(DateTime, nullable=False)
+    
+    # Synchronization
+    sync_status = Column(String(20), default='pending')
+    last_synced = Column(DateTime)
+    sync_errors = Column(JSON)
+    
+    # Audit
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    product = relationship("Product", back_populates="sources")
+    
+    __table_args__ = (
+        Index('idx_source_product', 'product_id'),
+        Index('idx_source_type', 'source_type'),
+        Index('idx_source_priority', 'source_priority'),
+        Index('idx_source_updated', 'last_updated'),
+        UniqueConstraint('product_id', 'source_type', 'source_identifier', name='uq_product_source'),
+    )
+    
+    def __repr__(self):
+        return f"<ProductSource(id={self.id}, product_id={self.product_id}, source_type='{self.source_type}')>"
+
+class ProductChangeLog(Base):
+    """Comprehensive change tracking for products."""
+    __tablename__ = 'product_change_logs'
+    
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    
+    # Change details
+    change_type = Column(String(50), nullable=False)  # create, update, delete, sync
+    field_name = Column(String(100))
+    old_value = Column(Text)
+    new_value = Column(Text)
+    value_type = Column(String(20), default='string')
+    
+    # Change source
+    source_type = Column(String(50), nullable=False)
+    source_id = Column(String(100))
+    triggered_by = Column(Integer, ForeignKey('users.id'))
+    
+    # Batch tracking
+    batch_id = Column(Integer, ForeignKey('etilize_import_batches.id'))
+    job_id = Column(Integer, ForeignKey('jobs.id'))
+    
+    # Metadata
+    change_reason = Column(String(200))
+    confidence_score = Column(Float)
+    meta_data = Column(JSON)
+    
+    # Audit
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    
+    # Relationships
+    product = relationship("Product")
+    user = relationship("User")
+    batch = relationship("EtilizeImportBatch")
+    job = relationship("Job")
+    
+    __table_args__ = (
+        Index('idx_change_product', 'product_id'),
+        Index('idx_change_type', 'change_type'),
+        Index('idx_change_field', 'field_name'),
+        Index('idx_change_source', 'source_type'),
+        Index('idx_change_created', 'created_at'),
+        Index('idx_change_batch', 'batch_id'),
+    )
+    
+    def __repr__(self):
+        return f"<ProductChangeLog(id={self.id}, product_id={self.product_id}, change_type='{self.change_type}')>"
+
+class SyncQueue(Base):
+    """Queue for managing synchronization tasks."""
+    __tablename__ = 'sync_queue'
+    
+    id = Column(Integer, primary_key=True)
+    queue_uuid = Column(String(36), unique=True, nullable=False, index=True)
+    
+    # Queue item details
+    item_type = Column(String(50), nullable=False)  # product, category, image
+    item_id = Column(Integer, nullable=False)
+    target_system = Column(String(50), nullable=False)  # shopify, etilize
+    
+    # Sync operation
+    operation_type = Column(String(50), nullable=False)  # create, update, delete
+    operation_data = Column(JSON)
+    
+    # Priority and scheduling
+    priority = Column(Integer, default=100)
+    scheduled_at = Column(DateTime, default=func.now())
+    
+    # Status tracking
+    status = Column(String(20), default='pending')
+    attempts = Column(Integer, default=0)
+    max_attempts = Column(Integer, default=3)
+    
+    # Processing
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    duration = Column(Integer)
+    
+    # Error handling
+    last_error = Column(Text)
+    error_details = Column(JSON)
+    
+    # Dependencies
+    depends_on = Column(JSON)  # List of queue item IDs
+    blocks = Column(JSON)  # List of queue item IDs that depend on this
+    
+    # Metadata
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        Index('idx_queue_status', 'status'),
+        Index('idx_queue_type', 'item_type'),
+        Index('idx_queue_target', 'target_system'),
+        Index('idx_queue_priority', 'priority'),
+        Index('idx_queue_scheduled', 'scheduled_at'),
+        Index('idx_queue_item', 'item_type', 'item_id'),
+    )
+    
+    def __repr__(self):
+        return f"<SyncQueue(id={self.id}, item_type='{self.item_type}', status='{self.status}')>"
+
+class ImportRule(Base):
+    """Rules for import processing and validation."""
+    __tablename__ = 'import_rules'
+    
+    id = Column(Integer, primary_key=True)
+    
+    # Rule identification
+    rule_name = Column(String(200), nullable=False)
+    rule_type = Column(String(50), nullable=False)  # validation, mapping, transformation
+    rule_category = Column(String(100))
+    
+    # Rule definition
+    conditions = Column(JSON, nullable=False)
+    actions = Column(JSON, nullable=False)
+    
+    # Rule metadata
+    description = Column(Text)
+    priority = Column(Integer, default=100)
+    is_active = Column(Boolean, default=True)
+    
+    # Execution tracking
+    execution_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    failure_count = Column(Integer, default=0)
+    last_executed = Column(DateTime)
+    
+    # Audit
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    created_by_user = relationship("User")
+    
+    __table_args__ = (
+        Index('idx_rule_type', 'rule_type'),
+        Index('idx_rule_category', 'rule_category'),
+        Index('idx_rule_active', 'is_active'),
+        Index('idx_rule_priority', 'priority'),
+    )
+    
+    def __repr__(self):
+        return f"<ImportRule(id={self.id}, name='{self.rule_name}', type='{self.rule_type}')>"
+
+class ShopifySync(Base):
+    """Track Shopify synchronization operations."""
+    __tablename__ = 'shopify_syncs'
+    
+    id = Column(Integer, primary_key=True)
+    sync_uuid = Column(String(36), unique=True, nullable=False, index=True)
+    
+    # Sync configuration
+    mode = Column(String(50), nullable=False)  # full_sync, new_only, update_only, ultra_fast, image_sync
+    configuration = Column(JSON, nullable=False)
+    filters = Column(JSON)
+    
+    # Related import batch
+    import_batch_id = Column(Integer, ForeignKey('etilize_import_batches.id'))
+    
+    # Status tracking
+    status = Column(String(20), default='queued', nullable=False)  # queued, running, completed, failed, cancelled
+    stage = Column(String(50), default='initialization')
+    progress = Column(Integer, default=0)
+    
+    # Timing
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    duration = Column(Integer)  # seconds
+    
+    # Statistics
+    total_products = Column(Integer, default=0)
+    successful_uploads = Column(Integer, default=0)
+    failed_uploads = Column(Integer, default=0)
+    skipped_uploads = Column(Integer, default=0)
+    duplicates_cleaned = Column(Integer, default=0)
+    retry_count = Column(Integer, default=0)
+    
+    # Error handling
+    errors = Column(JSON)
+    warnings = Column(JSON)
+    
+    # User tracking
+    triggered_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    
+    # Relationships
+    user = relationship("User")
+    import_batch = relationship("EtilizeImportBatch")
+    
+    __table_args__ = (
+        Index('idx_shopify_sync_status', 'status'),
+        Index('idx_shopify_sync_mode', 'mode'),
+        Index('idx_shopify_sync_created', 'created_at'),
+        Index('idx_shopify_sync_batch', 'import_batch_id'),
+        Index('idx_shopify_sync_user', 'triggered_by'),
+    )
+    
+    def __repr__(self):
+        return f"<ShopifySync(id={self.id}, mode='{self.mode}', status='{self.status}')>"
 
 # Create indexes for performance
 def create_performance_indexes(engine):
