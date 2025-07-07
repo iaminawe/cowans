@@ -21,16 +21,22 @@ class UserRepository(BaseRepository):
         """Get user by email."""
         return self.get_by(email=email.lower())
     
+    def get_by_supabase_id(self, supabase_id: str) -> Optional[User]:
+        """Get user by Supabase ID."""
+        return self.get_by(supabase_id=supabase_id)
+    
     def create_user(self, email: str, password: str, first_name: Optional[str] = None,
-                   last_name: Optional[str] = None, is_admin: bool = False) -> User:
+                   last_name: Optional[str] = None, is_admin: bool = False,
+                   supabase_id: Optional[str] = None) -> User:
         """Create a new user with hashed password."""
         return self.create(
             email=email.lower(),
-            password_hash=generate_password_hash(password),
+            password_hash=generate_password_hash(password) if password else "",
             first_name=first_name,
             last_name=last_name,
             is_admin=is_admin,
-            is_active=True
+            is_active=True,
+            supabase_id=supabase_id
         )
     
     def verify_password(self, user: User, password: str) -> bool:

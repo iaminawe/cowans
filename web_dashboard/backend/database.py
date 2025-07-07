@@ -33,7 +33,25 @@ class DatabaseManager:
         
     def _get_database_url(self) -> str:
         """Get database URL from configuration."""
-        # Use environment variable if set, otherwise construct from config
+        # Check for DATABASE_URL environment variable first
+        database_url = os.getenv('DATABASE_URL')
+        if database_url:
+            return database_url
+            
+        # Check for Supabase configuration
+        supabase_url = os.getenv('SUPABASE_URL')
+        if supabase_url:
+            # Extract database credentials from Supabase URL
+            # Supabase URL format: https://[project-id].supabase.co
+            project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
+            # Use service role key for database access
+            service_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
+            if service_key:
+                # Extract the database connection string
+                # Supabase PostgreSQL format: postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres
+                return f"postgresql://postgres:{service_key}@db.{project_id}.supabase.co:5432/postgres"
+        
+        # Use config object if available
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
             return Config.DATABASE_URL
         
@@ -331,7 +349,8 @@ class DatabaseUtils:
     @staticmethod
     def seed_initial_data() -> None:
         """Seed database with initial data."""
-        from models import Configuration
+        from models import Configuration, User
+        from werkzeug.security import generate_password_hash
         
         try:
             # Ensure database is initialized
@@ -339,6 +358,22 @@ class DatabaseUtils:
                 db_manager.initialize()
                 
             with db_session_scope() as session:
+                # Create default dev user with ID 1 if it doesn't exist
+                dev_user = session.query(User).filter_by(id=1).first()
+                if not dev_user:
+                    dev_user = User(
+                        id=1,
+                        email='dev@example.com',
+                        password_hash=generate_password_hash('devpassword'),
+                        first_name='Dev',
+                        last_name='User',
+                        is_admin=True,
+                        is_active=True
+                    )
+                    session.add(dev_user)
+                    session.commit()
+                    logger.info("Created default dev user with ID 1")
+                
                 # Default configurations
                 default_configs = [
                     {
