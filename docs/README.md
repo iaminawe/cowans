@@ -16,10 +16,16 @@ Core project documentation including requirements, architecture, and planning:
 ### 💻 [Development Documentation](./development/)
 Development guides and technical reports:
 - **[CLAUDE.md](../CLAUDE.md)** - AI development guidance and instructions (located in project root)
+- **[RECENT_FIXES_SUMMARY.md](./RECENT_FIXES_SUMMARY.md)** - Complete summary of all recent fixes and improvements
 - **[Framework Scaffold Report.md](./development/Framework%20Scaffold%20Report.md)** - Framework scaffolding analysis
 - **[changes.md](./development/changes.md)** - Change log and version history
 - **[comprehension_report.md](./development/comprehension_report.md)** - Code comprehension analysis
 - **[optimization_report.md](./development/optimization_report.md)** - Performance optimization analysis
+
+### 🔧 [Frontend Documentation](../frontend/docs/)
+Frontend-specific documentation and technical reports:
+- **[TYPESCRIPT_IMPROVEMENTS_DOCUMENTATION.md](../frontend/docs/TYPESCRIPT_IMPROVEMENTS_DOCUMENTATION.md)** - Comprehensive TypeScript Strike Mission improvements
+- **[TYPESCRIPT_STRIKE_MISSION_REPORT.md](../frontend/docs/TYPESCRIPT_STRIKE_MISSION_REPORT.md)** - Technical mission report and fixes
 
 ### 🧪 [Testing Documentation](./testing/)
 All testing-related documentation including test plans and strategies:
@@ -61,11 +67,19 @@ Research findings, analysis, and reports:
 
 ## 🚀 Quick Start
 
-1. **New to the project?** Start with [Project README](./project/README.md)
-2. **Setting up development?** Check [CLAUDE.md](../CLAUDE.md) for AI guidance
-3. **Running tests?** See [master_acceptance_test_plan.md](./testing/master_acceptance_test_plan.md)
-4. **Security concerns?** Review [security_review_report.md](./security/security_review_report.md)
-5. **Research background?** Browse [research/final_report/](./research/final_report/)
+1. **New to the project?** Start with [Main README](../README.md) - Complete system overview
+2. **Setting up development?** Check [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for installation
+3. **Recent fixes and improvements?** See [RECENT_FIXES_SUMMARY.md](./RECENT_FIXES_SUMMARY.md)
+4. **Using the dashboard?** Review [USER_GUIDE.md](./USER_GUIDE.md) for comprehensive instructions
+5. **API integration?** Check [API_ENDPOINTS_REFERENCE.md](./API_ENDPOINTS_REFERENCE.md)
+6. **Running tests?** See [master_acceptance_test_plan.md](./testing/master_acceptance_test_plan.md)
+7. **Security concerns?** Review [security_review_report.md](./security/security_review_report.md)
+
+### 📚 Essential Documentation (Recently Updated)
+- **[USER_GUIDE.md](./USER_GUIDE.md)** - Complete user instructions for all 8 dashboard tabs
+- **[API_ENDPOINTS_REFERENCE.md](./API_ENDPOINTS_REFERENCE.md)** - Full API documentation with examples
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Updated installation and deployment guide
+- **[TYPESCRIPT_IMPROVEMENTS_DOCUMENTATION.md](../frontend/docs/TYPESCRIPT_IMPROVEMENTS_DOCUMENTATION.md)** - TypeScript improvements and type safety enhancements
 
 ## 📝 Documentation Standards
 
