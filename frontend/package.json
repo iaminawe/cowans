@@ -54,6 +54,7 @@
   "scripts": {
     "start": "webpack serve --mode development",
     "build": "webpack --mode production",
+    "build:verbose": "webpack --mode production --stats-error-details --stats-children",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
