@@ -462,6 +462,136 @@ def get_staging_data(batch_id: int):
         logger.error(f"Staging data retrieval error: {str(e)}")
         return jsonify({"error": "Failed to get staging data"}), 500
 
+
+# Missing Etilize Endpoints
+@import_bp.route('/etilize/ftp/check', methods=['GET'])
+@jwt_required()
+def check_etilize_ftp():
+    """Check Etilize FTP connection status."""
+    try:
+        # Get FTP configuration from environment
+        ftp_host = os.getenv('ETILIZE_FTP_HOST')
+        ftp_user = os.getenv('ETILIZE_FTP_USER')
+        ftp_password = os.getenv('ETILIZE_FTP_PASSWORD')
+        
+        if not all([ftp_host, ftp_user, ftp_password]):
+            return jsonify({
+                'success': False,
+                'connected': False,
+                'error': 'FTP credentials not configured',
+                'message': 'Please configure ETILIZE_FTP_HOST, ETILIZE_FTP_USER, and ETILIZE_FTP_PASSWORD'
+            }), 200
+        
+        # Test FTP connection
+        import ftplib
+        try:
+            ftp = ftplib.FTP(ftp_host)
+            ftp.login(ftp_user, ftp_password)
+            
+            # Try to list directory
+            files = ftp.nlst()
+            ftp.quit()
+            
+            return jsonify({
+                'success': True,
+                'connected': True,
+                'message': 'FTP connection successful',
+                'host': ftp_host,
+                'user': ftp_user,
+                'files_count': len(files),
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+            
+        except ftplib.all_errors as ftp_error:
+            return jsonify({
+                'success': False,
+                'connected': False,
+                'error': str(ftp_error),
+                'message': 'Failed to connect to Etilize FTP server',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to check FTP connection: {str(e)}")
+        return jsonify({
+            'success': False,
+            'connected': False,
+            'error': str(e),
+            'message': 'Internal server error',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+
+@import_bp.route('/etilize/import/history', methods=['GET'])
+@jwt_required()
+def get_etilize_import_history():
+    """Get Etilize import history."""
+    try:
+        user_id = get_user_id()
+        
+        # Get query parameters
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        status = request.args.get('status')
+        
+        with db_session_scope() as session:
+            from models import EtilizeImportBatch
+            
+            # Build query
+            query = session.query(EtilizeImportBatch)
+            
+            # Filter by user if not admin
+            query = query.filter_by(triggered_by=user_id)
+            
+            # Filter by status if provided
+            if status:
+                query = query.filter_by(status=status)
+            
+            # Order by creation date
+            query = query.order_by(EtilizeImportBatch.created_at.desc())
+            
+            # Paginate
+            total = query.count()
+            imports = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            # Format response
+            items = []
+            for import_batch in imports:
+                items.append({
+                    'id': import_batch.id,
+                    'batch_id': import_batch.batch_id,
+                    'status': import_batch.status,
+                    'stage': import_batch.stage,
+                    'source_file_path': import_batch.source_file_path,
+                    'total_records': import_batch.total_records,
+                    'processed_records': import_batch.processed_records,
+                    'imported_records': import_batch.imported_records,
+                    'failed_records': import_batch.failed_records,
+                    'validation_errors': import_batch.validation_errors,
+                    'mapping_errors': import_batch.mapping_errors,
+                    'created_at': import_batch.created_at.isoformat() if import_batch.created_at else None,
+                    'started_at': import_batch.started_at.isoformat() if import_batch.started_at else None,
+                    'completed_at': import_batch.completed_at.isoformat() if import_batch.completed_at else None,
+                    'error_summary': import_batch.error_summary
+                })
+            
+            return jsonify({
+                'success': True,
+                'imports': items,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total,
+                    'total_pages': (total + per_page - 1) // per_page
+                },
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+    except Exception as e:
+        logger.error(f"Failed to get import history: {str(e)}")
+        return jsonify({'error': 'Failed to get import history'}), 500
+
+
 # Error handlers for the blueprint
 @import_bp.errorhandler(413)
 def file_too_large(error):

@@ -15,9 +15,17 @@ import logging
 from typing import Dict, Optional, Any, List
 
 try:
-    from .shopify_base import ShopifyAPIBase, CREATE_PRODUCT_MUTATION, UPDATE_PRODUCT_MUTATION, COLUMN_MAPPINGS
+    from .shopify_base import (ShopifyAPIBase, CREATE_PRODUCT_MUTATION, UPDATE_PRODUCT_MUTATION, 
+                              CREATE_VARIANT_MUTATION, UPDATE_VARIANT_MUTATION, COLUMN_MAPPINGS,
+                              ULTRA_FAST_PRODUCT_UPDATE, ULTRA_FAST_VARIANT_UPDATE,
+                              PUBLISH_PRODUCT_MUTATION, UNPUBLISH_PRODUCT_MUTATION,
+                              INVENTORY_ITEM_UPDATE)
 except ImportError:
-    from shopify_base import ShopifyAPIBase, CREATE_PRODUCT_MUTATION, UPDATE_PRODUCT_MUTATION, COLUMN_MAPPINGS
+    from shopify_base import (ShopifyAPIBase, CREATE_PRODUCT_MUTATION, UPDATE_PRODUCT_MUTATION,
+                             CREATE_VARIANT_MUTATION, UPDATE_VARIANT_MUTATION, COLUMN_MAPPINGS,
+                             ULTRA_FAST_PRODUCT_UPDATE, ULTRA_FAST_VARIANT_UPDATE,
+                             PUBLISH_PRODUCT_MUTATION, UNPUBLISH_PRODUCT_MUTATION,
+                             INVENTORY_ITEM_UPDATE)
 
 # GraphQL queries for product operations
 GET_PRODUCT_BY_HANDLE = """
@@ -25,6 +33,25 @@ query getProductByHandle($handle: String!) {
   productByHandle(handle: $handle) {
     id
     handle
+  }
+}
+"""
+
+GET_PRODUCT_WITH_VARIANT = """
+query getProductWithVariant($handle: String!) {
+  productByHandle(handle: $handle) {
+    id
+    handle
+    variants(first: 1) {
+      edges {
+        node {
+          id
+          inventoryItem {
+            id
+          }
+        }
+      }
+    }
   }
 }
 """
@@ -66,9 +93,9 @@ class ShopifyProductManager(ShopifyAPIBase):
     """Manages product operations for Shopify."""
     
     def __init__(self, shop_url: str, access_token: str, debug: bool = False, 
-                 data_source: str = 'default'):
+                 data_source: str = 'default', turbo: bool = False, hyper: bool = False):
         """Initialize the product manager."""
-        super().__init__(shop_url, access_token, debug)
+        super().__init__(shop_url, access_token, debug, turbo, hyper)
         self.logger = logging.getLogger(__name__)
         self.data_source = data_source
         self.column_mapping = COLUMN_MAPPINGS.get(data_source, COLUMN_MAPPINGS['default'])
@@ -258,27 +285,34 @@ class ShopifyProductManager(ShopifyAPIBase):
                 self.logger.warning(f"Invalid price '{price_str}' for product {title}, using 0.0")
                 price = 0.0
             
-            # Build product input
+            # Build product input (without bodyHtml and variants - they need separate mutations)
             product_input = {
                 'title': title,
-                'bodyHtml': description,
                 'vendor': vendor,
                 'productType': product_type,
                 'tags': tags,
                 'published': published,
-                'status': status,
-                'variants': [{
-                    'sku': sku,
-                    'price': str(price),
-                    'inventoryQuantity': 0,
-                    'requiresShipping': True,
-                    'taxable': True
-                }]
+                'status': status
+            }
+            
+            # Store variant data separately for later handling
+            variant_data = {
+                'sku': sku,
+                'price': str(price),
+                'inventoryQuantity': 0,
+                'requiresShipping': True,
+                'taxable': True
             }
             
             # Add handle if provided
             if handle:
                 product_input['handle'] = handle
+            
+            # Add category using TaxonomyCategory GID (supported in API 2024-10)
+            category_gid = row.get('category_gid', '').strip()
+            if category_gid and category_gid.startswith('gid://shopify/TaxonomyCategory/'):
+                product_input['category'] = category_gid
+                self.logger.info(f"Setting category to: {category_gid}")
             
             # Process metafields (custom fields)
             metafields = []
@@ -307,23 +341,26 @@ class ShopifyProductManager(ShopifyAPIBase):
                 product_input['metafields'] = metafields
             
             return {
-                'input': product_input
+                'input': product_input,
+                'variant_data': variant_data,
+                'description': description  # Include description separately
             }
             
         except Exception as e:
             self.logger.error(f"Failed to map row to product: {str(e)}")
             raise ValueError(f"Failed to map CSV row to product: {str(e)}")
     
-    def upload_product(self, product_data: Dict, product_id: Optional[str] = None) -> str:
+    def upload_product(self, product_data: Dict, product_id: Optional[str] = None, variant_data: Optional[Dict] = None) -> str:
         """Upload or update a product."""
         try:
+            input_data = {'input': product_data['input']}
             mutation = UPDATE_PRODUCT_MUTATION if product_id else CREATE_PRODUCT_MUTATION
             
             # Add product ID for updates
             if product_id:
-                product_data['input']['id'] = product_id
+                input_data['input']['id'] = product_id
             
-            result = self.execute_graphql(mutation, product_data)
+            result = self.execute_graphql(mutation, input_data)
             
             if 'errors' in result:
                 raise Exception(f"GraphQL errors: {result['errors']}")
@@ -335,11 +372,59 @@ class ShopifyProductManager(ShopifyAPIBase):
                 raise Exception(f"User errors: {product_result['userErrors']}")
             
             created_product = product_result.get('product', {})
-            return created_product.get('id', '')
+            created_product_id = created_product.get('id', '')
+            
+            # Skip variant creation - not supported in current API version
+            # Products are created with default variants automatically
+            if variant_data and self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(f"Variant data available but skipping creation: {variant_data}")
+            
+            return created_product_id
             
         except Exception as e:
             self.logger.error(f"Failed to upload product: {str(e)}")
             raise Exception(f"Failed to upload product: {str(e)}")
+    
+    def manage_product_variant(self, product_id: str, variant_data: Dict, product_info: Dict) -> str:
+        """Create or update a product variant."""
+        try:
+            # Check if product already has variants
+            existing_variants = product_info.get('variants', {}).get('edges', [])
+            
+            if existing_variants:
+                # Update existing variant
+                variant_id = existing_variants[0]['node']['id']
+                variant_input = {
+                    'id': variant_id,
+                    'price': variant_data.get('price', '0.00'),
+                    'sku': variant_data.get('sku', ''),
+                    'inventoryQuantity': variant_data.get('inventoryQuantity', 0)
+                }
+                result = self.execute_graphql(UPDATE_VARIANT_MUTATION, {'input': variant_input})
+                operation = 'productVariantUpdate'
+            else:
+                # Create new variant
+                variant_input = {
+                    'productId': product_id,
+                    'price': variant_data.get('price', '0.00'),
+                    'sku': variant_data.get('sku', ''),
+                    'inventoryQuantity': variant_data.get('inventoryQuantity', 0)
+                }
+                result = self.execute_graphql(CREATE_VARIANT_MUTATION, {'input': variant_input})
+                operation = 'productVariantCreate'
+
+            if 'errors' in result:
+                raise Exception(f"GraphQL errors: {result['errors']}")
+
+            variant_result = result.get('data', {}).get(operation, {})
+            if variant_result.get('userErrors'):
+                raise Exception(f"Variant {operation} errors: {variant_result['userErrors']}")
+
+            return variant_result['productVariant']['id']
+            
+        except Exception as e:
+            self.logger.error(f"Failed to manage variant: {str(e)}")
+            raise
     
     def extract_images_from_rows(self, product_rows: List[Dict]) -> List[str]:
         """Extract image URLs from product rows."""
@@ -368,22 +453,96 @@ class ShopifyProductManager(ShopifyAPIBase):
                 self.logger.error("Product title is required")
                 return False
             
-            # Validate variants
-            variants = input_data.get('variants', [])
-            if not variants:
-                self.logger.error("At least one variant is required")
-                return False
-            
-            for variant in variants:
-                price = variant.get('price', '0')
-                try:
-                    float(price)
-                except (ValueError, TypeError):
-                    self.logger.error(f"Invalid price: {price}")
-                    return False
-            
             return True
             
         except Exception as e:
             self.logger.error(f"Product validation failed: {str(e)}")
+            return False
+    
+    def ultra_fast_update(self, handle: str, published: bool, inventory_policy: str) -> bool:
+        """Ultra-fast update for published status and inventory policy only."""
+        try:
+            # Get product and variant IDs in one query
+            query_variables = {"handle": handle}
+            result = self.execute_graphql(GET_PRODUCT_WITH_VARIANT, query_variables)
+            
+            if not result or 'data' not in result:
+                self.logger.debug(f"Product {handle} not found for ultra-fast update")
+                return False
+            
+            product_data = result['data'].get('productByHandle')
+            if not product_data:
+                self.logger.debug(f"Product {handle} not found")
+                return False
+            
+            product_id = product_data['id']
+            
+            # Publish or unpublish from Online Store
+            # Online Store publication ID is typically gid://shopify/Publication/109498401025
+            # but we should get it dynamically
+            publication_input = [{
+                "publicationId": "gid://shopify/Publication/109498401025"  # Online Store
+            }]
+            
+            if published:
+                publish_variables = {"id": product_id, "input": publication_input}
+                publish_result = self.execute_graphql(PUBLISH_PRODUCT_MUTATION, publish_variables)
+                
+                if not publish_result or 'data' not in publish_result:
+                    self.logger.error(f"Failed to publish product {handle}")
+                    return False
+            else:
+                unpublish_variables = {"id": product_id, "input": publication_input}
+                unpublish_result = self.execute_graphql(UNPUBLISH_PRODUCT_MUTATION, unpublish_variables)
+                
+                if not unpublish_result or 'data' not in unpublish_result:
+                    self.logger.error(f"Failed to unpublish product {handle}")
+                    return False
+            
+            # Update variant inventory policy and get inventory item ID
+            variants = product_data.get('variants', {}).get('edges', [])
+            if variants and len(variants) > 0:
+                variant_node = variants[0]['node']
+                variant_id = variant_node['id']
+                inventory_item_id = variant_node.get('inventoryItem', {}).get('id')
+                
+                # Update variant inventory policy
+                variant_input = [{
+                    "id": variant_id,
+                    "inventoryPolicy": inventory_policy.upper()  # CONTINUE or DENY
+                }]
+                
+                variant_variables = {
+                    "productId": product_id,
+                    "variants": variant_input
+                }
+                variant_result = self.execute_graphql(ULTRA_FAST_VARIANT_UPDATE, variant_variables)
+                
+                if not variant_result or 'data' not in variant_result:
+                    self.logger.error(f"Failed to update variant for {handle}")
+                    return False
+                
+                # Update inventory tracking
+                if inventory_item_id:
+                    inventory_input = {
+                        "tracked": True  # Always enable tracking
+                    }
+                    
+                    inventory_variables = {
+                        "id": inventory_item_id,
+                        "input": inventory_input
+                    }
+                    inventory_result = self.execute_graphql(INVENTORY_ITEM_UPDATE, inventory_variables)
+                    
+                    if not inventory_result or 'data' not in inventory_result:
+                        self.logger.error(f"Failed to update inventory tracking for {handle}")
+                        # Don't fail the whole update if just tracking fails
+                else:
+                    self.logger.warning(f"No inventory item found for {handle}")
+            
+            self.logger.debug(f"Ultra-fast update completed for {handle}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Ultra-fast update failed for {handle}: {str(e)}")
             return False

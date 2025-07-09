@@ -261,3 +261,28 @@ class SyncHistoryRepository(BaseRepository):
         return self.session.query(SyncHistory).options(
             joinedload(SyncHistory.user)
         ).filter(SyncHistory.id == sync_id).first()
+    
+    def count_successful(self) -> int:
+        """Count successful syncs."""
+        return self.count({'status': SyncStatus.SUCCESS.value})
+    
+    def count_failed(self) -> int:
+        """Count failed syncs."""
+        return self.count({'status': SyncStatus.FAILED.value})
+    
+    def count_since(self, since_date: datetime) -> int:
+        """Count syncs since a specific date."""
+        return self.session.query(SyncHistory).filter(
+            SyncHistory.started_at >= since_date
+        ).count()
+    
+    def get_avg_products_per_sync(self) -> float:
+        """Get average products per sync."""
+        avg = self.session.query(
+            func.avg(SyncHistory.products_synced)
+        ).filter(
+            SyncHistory.products_synced.isnot(None),
+            SyncHistory.products_synced > 0
+        ).scalar()
+        
+        return round(avg or 0, 2)

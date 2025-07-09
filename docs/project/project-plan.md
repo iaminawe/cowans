@@ -1,4 +1,4 @@
-# **Product Feed Integration System – Development Plan & Requirements**
+# **Cowans Office Supplies Integration System – Development Plan & Requirements**
 
 ## **Project Overview & Objectives**
 

@@ -1,0 +1,74 @@
+{
+  "step": "Core Implementation",
+  "timestamp": "2025-01-02T23:59:41.000Z",
+  "objective": "Implement core script for Shopify collection export",
+  "implementation": {
+    "scriptPath": "/Users/iaminawe/Sites/cowans/scripts/shopify/export_product_collections.py",
+    "mainFunctions": [
+      "export_product_collections",
+      "_export_products_view",
+      "_export_collections_view", 
+      "_process_product_row",
+      "_process_collection_row",
+      "_print_summary"
+    ],
+    "dependencies": [
+      "shopify_base.ShopifyAPIBase",
+      "csv module for file output",
+      "argparse for CLI handling",
+      "logging for error tracking",
+      "datetime for timestamps"
+    ],
+    "cliArgs": [
+      "--shop-url (required): Shopify store URL",
+      "--access-token (required): Admin API token",
+      "--output: Output CSV file path (default: timestamped)",
+      "--limit: Limit number of items for testing",
+      "--debug: Enable debug logging",
+      "--collections-view: Export from collections perspective",
+      "--validate-token: Test API authentication"
+    ]
+  },
+  "codeStructure": "Script follows established patterns from shopify_uploader_new.py: inherits from ShopifyAPIBase, uses GraphQL queries with pagination, implements rate limiting through base class, includes comprehensive CLI argument parsing with help examples, uses CSV DictWriter for structured output, implements two export perspectives (products-first or collections-first), includes error handling and metrics tracking, follows logging patterns from existing codebase",
+  "integrations": [
+    "Uses shopify_base.ShopifyAPIBase for API communication and rate limiting",
+    "Follows GraphQL query patterns from existing scripts",
+    "Uses same authentication and URL formatting logic",
+    "Implements pagination handling like other Shopify scripts",
+    "Uses similar CLI argument structure and help formatting"
+  ],
+  "testingNotes": [
+    "Test with --validate-token flag first",
+    "Test with --limit 10 for small exports",
+    "Test both products-view and collections-view modes",
+    "Verify CSV output format and data completeness",
+    "Test pagination with large stores",
+    "Test error handling with invalid tokens/URLs"
+  ],
+  "nextSteps": [
+    "Agent 4 needs to add comprehensive error handling and edge cases",
+    "Agent 5 needs to implement testing and validation framework",
+    "Consider adding filtering options (by collection, status, etc.)",
+    "Add data validation and cleanup features",
+    "Implement progress indicators for large exports",
+    "Add resume capability for interrupted exports"
+  ],
+  "graphqlQueries": {
+    "PRODUCTS_WITH_COLLECTIONS_QUERY": "Fetches products with their collections, variants, and metadata in batches",
+    "COLLECTIONS_QUERY": "Fetches collections with their products for collections-first export"
+  },
+  "outputFormats": {
+    "products_view": "Each row represents a product-collection relationship with full product details",
+    "collections_view": "Each row represents a collection-product relationship with collection focus"
+  },
+  "features": [
+    "Dual export modes (products-first or collections-first)",
+    "Comprehensive product and collection metadata export",
+    "Pagination handling for large datasets",
+    "Rate limiting through base class",
+    "CSV export with configurable output path",
+    "Progress tracking and summary reporting",
+    "Error handling and logging",
+    "CLI interface with extensive help"
+  ]
+}

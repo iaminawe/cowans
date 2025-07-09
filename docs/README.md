@@ -1,6 +1,6 @@
 # Documentation Index
 
-Welcome to the Cowan's Product Feed Integration System documentation. This folder contains all project documentation organized by category for easy navigation.
+Welcome to the Cowans Office Supplies Integration System documentation. This folder contains all project documentation organized by category for easy navigation.
 
 ## 📁 Documentation Structure
 

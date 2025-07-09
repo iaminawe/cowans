@@ -1,0 +1,179 @@
+{
+  "step": "Architecture Design",
+  "timestamp": "2025-01-02T22:59:45.000Z",
+  "objective": "Design script architecture for Shopify collection export",
+  "architecture": {
+    "modules": [
+      {
+        "name": "shopify_collection_exporter.py",
+        "responsibility": "Main orchestrator script with CLI interface",
+        "location": "scripts/shopify/",
+        "dependencies": ["shopify_collection_manager.py", "argparse", "csv", "logging"]
+      },
+      {
+        "name": "shopify_collection_manager.py", 
+        "responsibility": "Core collection operations and GraphQL queries",
+        "location": "scripts/shopify/",
+        "dependencies": ["shopify_base.py", "typing", "json"]
+      },
+      {
+        "name": "collection_csv_writer.py",
+        "responsibility": "CSV generation and data formatting",
+        "location": "scripts/utilities/",
+        "dependencies": ["csv", "pathlib", "typing"]
+      }
+    ],
+    "dataFlow": [
+      "1. CLI argument parsing and validation",
+      "2. Shopify API authentication test",
+      "3. Retrieve all collections via GraphQL pagination",
+      "4. For each collection, retrieve associated products",
+      "5. Extract product handles and collection metadata",
+      "6. Transform data to CSV format with proper headers",
+      "7. Write CSV file with error handling and progress tracking",
+      "8. Generate summary report of exported data"
+    ],
+    "errorHandling": {
+      "strategy": "Multi-layered error handling with graceful degradation",
+      "levels": [
+        "Network/API errors - retry with exponential backoff",
+        "Authentication errors - immediate failure with clear message",
+        "Rate limiting - automatic delay and retry using existing RateLimiter",
+        "Data validation errors - log and continue with remaining items",
+        "File I/O errors - fail with clear error message",
+        "Partial failures - continue export and report issues in summary"
+      ]
+    },
+    "configuration": {
+      "cliArgs": [
+        "--shop-url (required): Target Shopify store URL",
+        "--access-token (required): Shopify Admin API access token", 
+        "--output-file (optional): CSV output file path (default: collections_export.csv)",
+        "--collection-filter (optional): Filter by collection handle pattern",
+        "--include-products (optional): Include product details in export",
+        "--max-products (optional): Maximum products per collection to export",
+        "--debug (optional): Enable debug logging",
+        "--format (optional): Output format (csv, json)"
+      ],
+      "envVars": [
+        "SHOPIFY_SHOP_URL",
+        "SHOPIFY_ACCESS_TOKEN"
+      ]
+    }
+  },
+  "designDecisions": [
+    {
+      "decision": "Extend existing ShopifyAPIBase class pattern",
+      "rationale": "Maintains consistency with codebase architecture and reuses rate limiting, error handling, and GraphQL execution logic"
+    },
+    {
+      "decision": "Use GraphQL instead of REST API",
+      "rationale": "Aligns with Shopify's 2024+ direction, more efficient data retrieval, and matches existing codebase patterns"
+    },
+    {
+      "decision": "Separate CSV writer into utilities module",
+      "rationale": "Follows established modular organization pattern and enables reuse across other export scripts"
+    },
+    {
+      "decision": "Implement pagination for large datasets",
+      "rationale": "Handle stores with many collections efficiently without memory issues or API timeouts"
+    },
+    {
+      "decision": "Follow existing CLI argument patterns",
+      "rationale": "Maintains consistency with other scripts like shopify_uploader_new.py for familiar developer experience"
+    },
+    {
+      "decision": "Use same logging configuration as existing scripts",
+      "rationale": "Ensures consistent log format and level handling across the entire codebase"
+    }
+  ],
+  "integrationPoints": [
+    {
+      "component": "shopify_base.py",
+      "integration": "Inherit from ShopifyAPIBase for authentication, rate limiting, and GraphQL execution"
+    },
+    {
+      "component": "scripts/utilities/",
+      "integration": "Place CSV writer utility following established module organization"
+    },
+    {
+      "component": "CLI patterns",
+      "integration": "Match argument parsing style from shopify_uploader_new.py and other scripts"
+    },
+    {
+      "component": "Logging system",
+      "integration": "Use same logging configuration and format as existing Shopify scripts"
+    },
+    {
+      "component": "Error handling",
+      "integration": "Follow same exception handling patterns as shopify_product_manager.py"
+    }
+  ],
+  "implementationPlan": [
+    {
+      "step": 1,
+      "task": "Create shopify_collection_manager.py with base class extension",
+      "details": "Implement core GraphQL queries for collections and products, extend ShopifyAPIBase"
+    },
+    {
+      "step": 2,
+      "task": "Implement collection_csv_writer.py utility",
+      "details": "Create CSV formatting and writing functionality with configurable headers and data transformation"
+    },
+    {
+      "step": 3,
+      "task": "Create main shopify_collection_exporter.py script",
+      "details": "Implement CLI interface, orchestration logic, and integration between manager and writer"
+    },
+    {
+      "step": 4,
+      "task": "Add comprehensive error handling and logging",
+      "details": "Implement multi-layer error handling with graceful degradation and detailed logging"
+    },
+    {
+      "step": 5,
+      "task": "Implement pagination and performance optimization",
+      "details": "Add pagination logic for large datasets and optimize GraphQL queries"
+    },
+    {
+      "step": 6,
+      "task": "Add filtering and configuration options",
+      "details": "Implement collection filtering, output format options, and advanced configuration"
+    },
+    {
+      "step": 7,
+      "task": "Create comprehensive testing and validation",
+      "details": "Add unit tests, integration tests, and validation for different store configurations"
+    },
+    {
+      "step": 8,
+      "task": "Documentation and integration with existing workflow",
+      "details": "Update README.md and ensure compatibility with existing script patterns"
+    }
+  ],
+  "graphqlQueries": {
+    "collections": "Query all collections with pagination, including handle, title, description, and product count",
+    "collectionProducts": "For each collection, query associated products with handles, titles, and basic metadata",
+    "collectionDetails": "Detailed collection information including rules for smart collections"
+  },
+  "csvSchema": {
+    "headers": [
+      "collection_handle",
+      "collection_title", 
+      "collection_description",
+      "collection_type",
+      "product_handle",
+      "product_title",
+      "product_id",
+      "product_status"
+    ],
+    "format": "Each row represents a collection-product relationship with collection metadata repeated for each product"
+  },
+  "performanceConsiderations": [
+    "Use cursor-based pagination for large datasets",
+    "Implement batching for API requests to minimize rate limiting",
+    "Stream CSV writing to handle large exports without memory issues",
+    "Use existing RateLimiter class for optimal API performance",
+    "Add progress tracking for long-running exports"
+  ]
+}

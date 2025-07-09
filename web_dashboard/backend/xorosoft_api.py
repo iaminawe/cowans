@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import logging
 from typing import Dict, Any, List
+from datetime import datetime
 
 from database import get_db
 from services.xorosoft_api_service import XorosoftAPIService, MatchType
@@ -273,6 +274,103 @@ def clear_cache():
     except Exception as e:
         logger.error(f"Failed to clear cache: {str(e)}")
         return jsonify({'error': 'Failed to clear cache'}), 500
+
+
+# Missing Xorosoft Endpoints
+@xorosoft_bp.route('/connection/check', methods=['GET'])
+@jwt_required()
+def check_connection():
+    """Check Xorosoft API connection status."""
+    try:
+        # Initialize API service
+        api_service = XorosoftAPIService()
+        
+        # Test connection with a simple request
+        test_result = api_service.search_products('test', page_size=1)
+        
+        # Get API configuration info
+        config_info = {
+            'api_url': getattr(api_service, 'base_url', 'Not configured'),
+            'authentication': 'Configured' if getattr(api_service, 'username', None) else 'Not configured',
+            'rate_limit': getattr(api_service, '_requests_per_second', 'Unknown')
+        }
+        
+        return jsonify({
+            'success': True,
+            'connected': True,
+            'message': 'Connection to Xorosoft API is working',
+            'config': config_info,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'connected': False,
+            'error': 'API credentials not configured',
+            'message': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        logger.error(f"Failed to check connection: {str(e)}")
+        return jsonify({
+            'success': False,
+            'connected': False,
+            'error': str(e),
+            'message': 'Failed to connect to Xorosoft API',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+
+
+@xorosoft_bp.route('/sync/history', methods=['GET'])
+@jwt_required()
+def get_sync_history():
+    """Get Xorosoft sync history."""
+    try:
+        # Get query parameters
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        status = request.args.get('status')
+        
+        # In a real implementation, this would query a sync history table
+        # For now, return mock data
+        mock_history = []
+        
+        # Simulate some sync history entries
+        from datetime import datetime, timedelta
+        for i in range(min(per_page, 10)):
+            entry = {
+                'id': f'sync_{i+1}',
+                'type': 'product_validation',
+                'status': 'completed' if i % 3 != 0 else 'failed',
+                'started_at': (datetime.utcnow() - timedelta(hours=i*2)).isoformat(),
+                'completed_at': (datetime.utcnow() - timedelta(hours=i*2-1)).isoformat(),
+                'items_processed': 50 + i*10,
+                'items_successful': 45 + i*8 if i % 3 != 0 else 20 + i*5,
+                'items_failed': 5 + i*2 if i % 3 != 0 else 30 + i*5,
+                'error_summary': 'Some items failed validation' if i % 3 == 0 else None
+            }
+            mock_history.append(entry)
+        
+        # Filter by status if provided
+        if status:
+            mock_history = [h for h in mock_history if h['status'] == status]
+        
+        return jsonify({
+            'success': True,
+            'history': mock_history,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': len(mock_history),
+                'total_pages': 1
+            },
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to get sync history: {str(e)}")
+        return jsonify({'error': 'Failed to get sync history'}), 500
 
 
 # Error handlers

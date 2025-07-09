@@ -2,7 +2,7 @@
 User Repository for managing user database operations.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -77,3 +77,53 @@ class UserRepository(BaseRepository):
                 User.last_name.ilike(search_term)
             )
         ).all()
+    
+    def count_active(self) -> int:
+        """Count active users."""
+        return self.count({'is_active': True})
+    
+    def count_admins(self) -> int:
+        """Count admin users."""
+        return self.count({'is_admin': True, 'is_active': True})
+    
+    def count_created_since(self, since_date: datetime) -> int:
+        """Count users created since a specific date."""
+        return self.session.query(User).filter(
+            User.created_at >= since_date
+        ).count()
+    
+    def get_paginated(self, page: int = 1, limit: int = 50, search: str = '', 
+                     filters: Dict[str, Any] = None, sort_by: str = 'created_at', 
+                     sort_order: str = 'desc') -> tuple:
+        """Get paginated users with search and filters."""
+        query = self.session.query(User)
+        
+        # Apply search
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    User.email.ilike(search_term),
+                    User.first_name.ilike(search_term),
+                    User.last_name.ilike(search_term)
+                )
+            )
+        
+        # Apply filters
+        if filters:
+            for field, value in filters.items():
+                if hasattr(User, field):
+                    query = query.filter(getattr(User, field) == value)
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply sorting
+        if hasattr(User, sort_by):
+            order_func = getattr(User, sort_by).desc() if sort_order == 'desc' else getattr(User, sort_by).asc()
+            query = query.order_by(order_func)
+        
+        # Apply pagination
+        query = query.offset((page - 1) * limit).limit(limit)
+        
+        return query.all(), total

@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = {
   mode: 'development',
@@ -32,9 +33,15 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './public/index.html',
     }),
+    new webpack.DefinePlugin({
+      'process.env': {
+        'REACT_APP_SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
+        'SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
+      },
+    }),
   ],
   devServer: {
-    port: 3000,
+    port: 3055,
     hot: true,
     open: true,
     historyApiFallback: true,

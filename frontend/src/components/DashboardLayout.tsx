@@ -61,7 +61,7 @@ export function DashboardLayout({
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight">Product Feed Dashboard</h1>
+                  <h1 className="text-xl font-bold tracking-tight">Cowans Office Supplies Dashboard</h1>
                   <p className="text-xs text-muted-foreground hidden sm:block">Cowan's Office Products Integration</p>
                 </div>
               </div>

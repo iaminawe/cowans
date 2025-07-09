@@ -18,7 +18,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from parallel_sync_engine import ParallelSyncEngine
 from sync_performance_monitor import SyncPerformanceMonitor
-from models import Product, Collection, ProductCollection, db
+from models import Product, Collection, ProductCollection
+from database import db_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -304,8 +305,9 @@ class ShopifyWebhookHandler:
                 updated_at=datetime.now()
             )
             
-            db.session.add(new_product)
-            db.session.commit()
+            with db_manager.get_session() as session:
+                session.add(new_product)
+                session.commit()
             
             logger.info(f"Created product from webhook: {event.shopify_id}")
             
@@ -319,9 +321,10 @@ class ShopifyWebhookHandler:
             product_data = event.data
             
             # Find existing product
-            product = Product.query.filter_by(
-                shopify_id=event.shopify_id
-            ).first()
+            with db_manager.get_session() as session:
+                product = session.query(Product).filter_by(
+                    shopify_id=event.shopify_id
+                ).first()
             
             if not product:
                 logger.info(f"Product {event.shopify_id} not found, creating instead")

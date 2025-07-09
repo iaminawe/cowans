@@ -1,6 +1,6 @@
 # Security Best Practices for Shopify API Credentials
 
-This document outlines the best practices for securely storing and managing Shopify API credentials within the Product Feed Integration System.
+This document outlines the best practices for securely storing and managing Shopify API credentials within the Cowans Office Supplies Integration System.
 
 ## Secure Storage Solutions
 

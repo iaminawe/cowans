@@ -161,18 +161,23 @@ class ShopifyImageManager(ShopifyAPIBase):
             return None
     
     def get_image_id_from_url(self, url: str) -> str:
-        """Extract image ID from Etilize URL to identify same image content."""
+        """Extract image ID from URL to identify same image content."""
+        filename = url.split('/')[-1].split('?')[0]  # Get filename without query params
+        
         if 'etilize.com' in url:
-            # Extract the numeric ID from URLs like: https://content.etilize.com/Front/1066665382.jpg
-            parts = url.split('/')
-            if len(parts) >= 1:
-                filename = parts[-1].split('?')[0]  # Remove query params
-                # Extract numeric part (without extension)
-                base_name = filename.split('.')[0]
-                # Handle cases like "1066665382" or other patterns
+            # Extract the numeric ID from URLs like: https://content.etilize.com/1500/1066665382.jpg
+            base_name = filename.split('.')[0]
+            if base_name.isdigit():
+                return base_name
+        else:
+            # For Shopify URLs or other URLs, extract image ID from filename
+            # Handle formats like: "1066665383.jpg" or "1066665383_uuid.jpg"
+            if filename.startswith(tuple('0123456789')):  # Starts with digit
+                base_name = filename.split('_')[0].split('.')[0]  # Get part before _ or .
                 if base_name.isdigit():
                     return base_name
-        return url.split('/')[-1].split('?')[0]  # Fallback to filename
+        
+        return filename  # Fallback to full filename
     
     def is_legitimate_alternate_view(self, new_url: str, existing_urls: List[str]) -> bool:
         """
@@ -216,8 +221,9 @@ class ShopifyImageManager(ShopifyAPIBase):
         return True
     
     def find_duplicate_images_by_size(self, images: List[Dict]) -> List[List[Dict]]:
-        """Find duplicate images by comparing file sizes."""
-        print(f"    🔍 Analyzing {len(images)} images for size-based duplicates...")
+        """Find duplicate images by comparing file sizes (for cleanup purposes)."""
+        if self.logger.isEnabledFor(logging.DEBUG):
+            print(f"    🔍 Analyzing {len(images)} existing images for size-based duplicates...")
         
         # Group images by file size
         size_groups = defaultdict(list)
@@ -244,7 +250,7 @@ class ShopifyImageManager(ShopifyAPIBase):
                 
                 if len(validated_duplicates) > 1:
                     duplicate_groups.append(validated_duplicates)
-                    print(f"    📸 Found {len(validated_duplicates)} images with identical size: {file_size} bytes")
+                    print(f"    🔍 Found {len(validated_duplicates)} existing images with identical size: {file_size} bytes")
         
         return duplicate_groups
     
@@ -335,8 +341,9 @@ class ShopifyImageManager(ShopifyAPIBase):
                     duplicates_to_remove.append(img['id'])
                 print(f"    🗑️  Found {len(existing_item)-1} filename duplicate(s) of: {filename}")
 
-        # Always check for size-based duplicates among existing images
+        # Check for size-based duplicates among existing images (for cleanup)
         if len(existing_images) > 1:  # Only check if there are multiple images
+            print(f"    🧹 Checking existing images for duplicates to clean up...")
             size_duplicate_groups = self.find_duplicate_images_by_size(existing_images)
             for duplicate_group in size_duplicate_groups:
                 # Keep the first image (usually oldest), remove the rest
@@ -344,7 +351,7 @@ class ShopifyImageManager(ShopifyAPIBase):
                     if img['id'] not in duplicates_to_remove:  # Avoid duplicate removals
                         duplicates_to_remove.append(img['id'])
                         filename = img['originalSrc'].split('/')[-1].split('?')[0]
-                        print(f"    🗑️  Found size-based duplicate: {filename}")
+                        print(f"    🗑️  Marking for cleanup: {filename} (duplicate)")
 
         # Remove duplicates
         if duplicates_to_remove:
@@ -387,33 +394,54 @@ class ShopifyImageManager(ShopifyAPIBase):
     def _filter_new_images(self, new_image_urls: List[str], 
                           existing_images: List[Dict]) -> List[str]:
         """Filter new image URLs to only include truly new/different images."""
+        print(f"    🔍 Pre-upload duplicate detection for {len(new_image_urls)} new images...")
+        
         existing_urls = {img['originalSrc'].split('?')[0] for img in existing_images}
+        
         images_to_add = []
+        images_skipped = 0
         
         for url in new_image_urls:
             normalized_url = url.split('?')[0]
+            filename = normalized_url.split('/')[-1]
             
-            # Skip exact URL matches
+            # Check 1: Skip exact URL matches
             if normalized_url in existing_urls:
+                print(f"    ⏭️  Skipping: {filename} (exact URL already exists)")
+                images_skipped += 1
                 continue
             
-            # Check file size to prevent duplicates
-            new_file_size = self.get_image_file_size(url)
-            is_size_duplicate = False
+            # Check 2: Skip based on image ID comparison (primary check)
+            new_image_id = self.get_image_id_from_url(url)
+            existing_image_ids = [self.get_image_id_from_url(img['originalSrc']) for img in existing_images]
             
+            
+            if new_image_id in existing_image_ids:
+                # Same image ID exists - check if it's a legitimate alternate view
+                if not self.is_legitimate_alternate_view(normalized_url, list(existing_urls)):
+                    print(f"    ⏭️  Skipping: {filename} (duplicate image ID: {new_image_id})")
+                    images_skipped += 1
+                    continue
+            
+            # Check 3: Skip based on file size comparison (fallback)
+            new_file_size = self.get_image_file_size(url)
             if new_file_size is not None:
+                is_size_duplicate = False
                 for existing_img in existing_images:
                     existing_size = self.get_image_file_size(existing_img['originalSrc'])
                     if existing_size == new_file_size:
-                        is_size_duplicate = True
                         existing_filename = existing_img['originalSrc'].split('/')[-1].split('?')[0]
-                        filename = normalized_url.split('/')[-1]
-                        print(f"    ⏭️  Skipping: {filename} (same file size as {existing_filename})")
+                        print(f"    ⏭️  Skipping: {filename} (same size {new_file_size} bytes as {existing_filename})")
+                        images_skipped += 1
+                        is_size_duplicate = True
                         break
+                
+                if is_size_duplicate:
+                    continue
             
-            if not is_size_duplicate:
-                images_to_add.append(url)
-                filename = normalized_url.split('/')[-1]
-                print(f"    ➕ Will add new image: {filename}")
+            # Passed all checks - add to upload list
+            images_to_add.append(url)
+            print(f"    ➕ Will upload: {filename}")
         
+        print(f"    📊 Pre-upload analysis: {len(images_to_add)} to upload, {images_skipped} skipped as duplicates")
         return images_to_add

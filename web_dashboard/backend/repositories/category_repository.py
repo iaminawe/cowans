@@ -140,7 +140,157 @@ class CategoryRepository(BaseRepository):
         
         return category
     
-    def move_category(self, category_id: int, new_parent_id: Optional[int]) -> bool:
+    def get_category_tree(self, include_inactive: bool = False, search: str = "") -> List[Dict[str, Any]]:
+        """Get hierarchical category tree."""
+        # Get all categories
+        query = self.session.query(Category)
+        
+        if not include_inactive:
+            query = query.filter(Category.is_active == True)
+        
+        if search:
+            query = query.filter(Category.name.ilike(f"%{search}%"))
+        
+        query = query.order_by(Category.level, Category.sort_order, Category.name)
+        categories = query.all()
+        
+        # Build tree structure
+        category_dict = {}
+        root_categories = []
+        
+        for cat in categories:
+            cat_data = self.to_dict_with_counts(cat)
+            cat_data['children'] = []
+            category_dict[cat.id] = cat_data
+            
+            if cat.parent_id is None:
+                root_categories.append(cat_data)
+            elif cat.parent_id in category_dict:
+                category_dict[cat.parent_id]['children'].append(cat_data)
+        
+        return root_categories
+    
+    def get_all_with_counts(self, include_inactive: bool = False, search: str = "") -> List[Dict[str, Any]]:
+        """Get all categories with product counts."""
+        query = self.session.query(Category)
+        
+        if not include_inactive:
+            query = query.filter(Category.is_active == True)
+        
+        if search:
+            query = query.filter(Category.name.ilike(f"%{search}%"))
+        
+        query = query.order_by(Category.level, Category.sort_order, Category.name)
+        categories = query.all()
+        
+        return [self.to_dict_with_counts(cat) for cat in categories]
+    
+    def to_dict_with_counts(self, category: Category) -> Dict[str, Any]:
+        """Convert category to dict with product counts."""
+        product_count = self.count_products_in_category(category.id)
+        
+        return {
+            'id': category.id,
+            'name': category.name,
+            'description': category.description,
+            'slug': category.slug,
+            'parent_id': category.parent_id,
+            'level': category.level,
+            'path': category.path,
+            'sort_order': category.sort_order,
+            'is_active': category.is_active,
+            'shopify_collection_id': category.shopify_collection_id,
+            'shopify_handle': category.shopify_handle,
+            'shopify_synced_at': category.shopify_synced_at.isoformat() if category.shopify_synced_at else None,
+            'meta_data': category.meta_data,
+            'created_at': category.created_at.isoformat(),
+            'updated_at': category.updated_at.isoformat(),
+            'product_count': product_count
+        }
+    
+    def count(self) -> int:
+        """Count total categories."""
+        return self.session.query(func.count(Category.id)).scalar() or 0
+    
+    def count_active(self) -> int:
+        """Count active categories."""
+        return self.session.query(func.count(Category.id)).filter(
+            Category.is_active == True
+        ).scalar() or 0
+    
+    def count_with_products(self) -> int:
+        """Count categories that have products."""
+        return self.session.query(func.count(func.distinct(Product.category_id))).filter(
+            Product.category_id.isnot(None)
+        ).scalar() or 0
+    
+    def count_empty(self) -> int:
+        """Count categories with no products."""
+        subquery = self.session.query(func.distinct(Product.category_id)).subquery()
+        return self.session.query(func.count(Category.id)).filter(
+            Category.id.notin_(subquery)
+        ).scalar() or 0
+    
+    def get_max_depth(self) -> int:
+        """Get maximum category depth/level."""
+        return self.session.query(func.max(Category.level)).scalar() or 0
+    
+    def get_avg_products_per_category(self) -> float:
+        """Get average number of products per category."""
+        total_categories = self.count_active()
+        if total_categories == 0:
+            return 0.0
+        
+        total_products = self.session.query(func.count(Product.id)).filter(
+            Product.category_id.isnot(None)
+        ).scalar() or 0
+        
+        return round(total_products / total_categories, 2)
+    
+    def count_products_in_category(self, category_id: int) -> int:
+        """Count products in a specific category."""
+        return self.session.query(func.count(Product.id)).filter(
+            Product.category_id == category_id
+        ).scalar() or 0
+    
+    def would_create_cycle(self, category_id: int, new_parent_id: int) -> bool:
+        """Check if moving category would create a circular reference."""
+        if category_id == new_parent_id:
+            return True
+        
+        # Check if new_parent_id is a descendant of category_id
+        category = self.get(category_id)
+        if not category or not category.path:
+            return False
+        
+        descendants = self.get_descendants(category_id)
+        return any(desc.id == new_parent_id for desc in descendants)
+    
+    def update_descendant_paths(self, category_id: int):
+        """Update paths for all descendants after moving a category."""
+        category = self.get(category_id)
+        if not category:
+            return
+        
+        # Get all descendants
+        descendants = self.session.query(Category).filter(
+            Category.path.like(f"%/{category_id}/%")
+        ).all()
+        
+        for desc in descendants:
+            # Recalculate path based on new hierarchy
+            path_parts = []
+            current = desc
+            
+            while current and current.parent_id:
+                current = self.get(current.parent_id)
+                if current:
+                    path_parts.append(str(current.id))
+            
+            desc.path = "/".join(reversed(path_parts)) if path_parts else None
+            desc.level = len(path_parts)
+    
+    def move_category(self, category_id: int, new_parent_id: Optional[int], position: int = 0) -> bool:
         """Move category to a new parent."""
         category = self.get(category_id)
         if not category:

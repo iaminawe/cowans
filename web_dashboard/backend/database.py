@@ -1,5 +1,5 @@
 """
-Database Module for Product Feed Integration System
+Database Module for Cowans Office Supplies Integration System
 
 This module handles database initialization, connection management, and session handling.
 """

@@ -29,7 +29,8 @@ class ShopifyUploader:
     
     def __init__(self, shop_url: str, access_token: str, batch_size: int = 25,
                  max_workers: int = 1, debug: bool = False, data_source: str = 'default',
-                 cleanup_duplicates: bool = False):
+                 cleanup_duplicates: bool = False, skip_images: bool = False, ultra_fast: bool = False,
+                 silent: bool = False, turbo: bool = False, hyper: bool = False):
         """Initialize the uploader with all required managers."""
         self.shop_url = shop_url
         self.access_token = access_token
@@ -38,9 +39,14 @@ class ShopifyUploader:
         self.debug = debug
         self.data_source = data_source
         self.cleanup_duplicates = cleanup_duplicates
+        self.skip_images = skip_images
+        self.ultra_fast = ultra_fast
+        self.silent = silent
+        self.turbo = turbo
+        self.hyper = hyper
         
-        # Initialize managers
-        self.product_manager = ShopifyProductManager(shop_url, access_token, debug, data_source)
+        # Initialize managers with turbo/hyper mode
+        self.product_manager = ShopifyProductManager(shop_url, access_token, debug, data_source, turbo, hyper)
         self.image_manager = ShopifyImageManager(shop_url, access_token, debug)
         
         # Setup logging
@@ -66,29 +72,37 @@ class ShopifyUploader:
             print(f"❌ Shopify authentication failed: {e}")
             raise
     
-    def process_csv(self, csv_path: str, limit: Optional[int] = None) -> None:
+    def process_csv(self, csv_path: str, limit: Optional[int] = None, start_from: Optional[int] = None) -> None:
         """Process CSV file and upload products to Shopify."""
         try:
             print(f"📁 Processing CSV file: {csv_path}")
             self.logger.info(f"Processing CSV file: {csv_path}")
             
             # Read and parse CSV
-            products_data = self._read_csv_file(csv_path, limit)
+            products_data = self._read_csv_file(csv_path, limit, start_from)
             
             if not products_data:
                 raise ValueError("No valid product data found in CSV file")
             
             print(f"📊 Found {len(products_data)} product(s) to process")
+            if start_from:
+                print(f"📍 Starting from record {start_from}")
             
             # Process each product
+            total_products = len(products_data)
             for i, (handle, product_rows) in enumerate(products_data.items(), 1):
-                print(f"\n[{i}/{len(products_data)}] Processing: {handle}")
-                self.logger.info(f"Processing product {i}/{len(products_data)}: {handle}")
+                actual_record_num = (start_from or 1) + i - 1
+                if not self.silent:
+                    print(f"\n[{actual_record_num}] Processing: {handle}")
+                elif i % 100 == 0:  # Progress update every 100 products in silent mode
+                    print(f"Progress: {i}/{total_products} ({i/total_products*100:.1f}%) - ✅ {self.upload_metrics['successful_uploads']} | ❌ {self.upload_metrics['failed_uploads']}")
+                self.logger.info(f"Processing product {actual_record_num}: {handle}")
                 
                 try:
                     self._process_single_product(handle, product_rows)
                 except Exception as e:
-                    print(f"    ❌ Failed to process product '{handle}': {str(e)}")
+                    if not self.silent:
+                        print(f"    ❌ Failed to process product '{handle}': {str(e)}")
                     self.logger.error(f"Failed to process product {handle}: {str(e)}")
                     self.upload_metrics['failed_uploads'] += 1
                     continue
@@ -100,24 +114,42 @@ class ShopifyUploader:
             self.logger.error(f"Fatal error processing CSV: {str(e)}")
             raise
     
-    def _read_csv_file(self, csv_path: str, limit: Optional[int] = None) -> Dict[str, List[Dict]]:
+    def _read_csv_file(self, csv_path: str, limit: Optional[int] = None, start_from: Optional[int] = None) -> Dict[str, List[Dict]]:
         """Read and parse CSV file, grouping rows by product handle."""
         products_data = defaultdict(list)
         seen_handles = set()
+        product_count = 0
         
         with open(csv_path, 'r', encoding='utf-8-sig') as file:
-            # Detect delimiter
-            sample = file.read(1024)
-            file.seek(0)
-            sniffer = csv.Sniffer()
-            delimiter = sniffer.sniff(sample).delimiter
+            # Use comma as delimiter and handle quoted fields properly
+            reader = csv.DictReader(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             
-            reader = csv.DictReader(file, delimiter=delimiter)
+            # Debug: print column names from first row
+            if self.debug:
+                print(f"CSV columns found: {list(reader.fieldnames)}")
             
             for idx, row in enumerate(reader, 1):
                 # Clean up row data
-                row = {k.strip() if k else f'col_{i}': v.strip() if v else '' 
-                      for i, (k, v) in enumerate(row.items())}
+                cleaned_row = {}
+                for i, (k, v) in enumerate(row.items()):
+                    # Clean up column names
+                    if k is None:
+                        key = f'col_{i}'
+                    elif isinstance(k, str):
+                        key = k.strip()
+                    else:
+                        key = str(k).strip()
+                    
+                    # Clean up values
+                    if v is None:
+                        value = ''
+                    elif isinstance(v, str):
+                        value = v.strip()
+                    else:
+                        value = str(v).strip()
+                    
+                    cleaned_row[key] = value
+                row = cleaned_row
                 
                 # Skip empty rows
                 if not any(v for v in row.values()):
@@ -126,21 +158,37 @@ class ShopifyUploader:
                 title = row.get('Title', row.get('title', '')).strip()
                 handle = row.get('URL handle', row.get('url handle', '')).strip()
                 
+                # Debug first few rows
+                if self.debug and idx <= 3:
+                    print(f"Row {idx} debug:")
+                    print(f"  Available keys: {list(row.keys())}")
+                    print(f"  Title value: '{title}'")
+                    print(f"  Handle value: '{handle}'")
+                
                 if not title and not handle:
-                    self.logger.warning(f"Skipping row {idx}: Missing both title and handle")
+                    if idx <= 5:  # Only log first 5 rows for debugging
+                        self.logger.warning(f"Skipping row {idx}: Missing both title and handle")
                     continue
                 elif not title and handle:
                     # This is likely an additional image for an existing product
                     self.logger.debug(f"Row {idx}: Additional image for product handle '{handle}'")
                 
-                if handle in seen_handles:
-                    self.logger.debug(f"Additional data/image for existing product {handle}")
-                else:
+                # Count unique products for start_from logic
+                if handle not in seen_handles:
+                    product_count += 1
                     seen_handles.add(handle)
+                    
+                    # Apply start_from filter - skip products before start_from
+                    if start_from and product_count < start_from:
+                        continue
+                
+                # If we already processed this handle and it was skipped due to start_from, continue skipping
+                if start_from and handle not in products_data and product_count < start_from:
+                    continue
                 
                 products_data[handle].append(row)
         
-        # Apply limit if specified
+        # Apply limit if specified (after start_from)
         if limit:
             limited_data = {}
             for i, (handle, rows) in enumerate(products_data.items()):
@@ -153,6 +201,11 @@ class ShopifyUploader:
     
     def _process_single_product(self, handle: str, product_rows: List[Dict]) -> None:
         """Process a single product with its associated data/images."""
+        # Ultra-fast mode: only update published status and inventory policy
+        if self.ultra_fast:
+            self._process_ultra_fast_update(handle, product_rows)
+            return
+        
         # Check if this is additional images only (no title in any row)
         has_titles = any(row.get('Title', row.get('title', '')).strip() for row in product_rows)
         
@@ -163,8 +216,41 @@ class ShopifyUploader:
             # This is a full product (create or update)
             self._process_full_product(handle, product_rows)
     
+    def _process_ultra_fast_update(self, handle: str, product_rows: List[Dict]) -> None:
+        """Ultra-fast update: only update published status and inventory policy."""
+        # Get the first row for data
+        row = product_rows[0]
+        
+        # Get published status
+        published_str = row.get('published', 'False').strip()
+        published = published_str.lower() in ['true', 'yes', '1']
+        
+        # Get inventory policy
+        continue_selling = row.get('continue selling when out of stock', 'deny').strip().lower()
+        inventory_policy = 'CONTINUE' if continue_selling in ['continue', 'true', 'yes', '1'] else 'DENY'
+        
+        if not self.silent:
+            print(f"    ⚡ Ultra-fast update: published={published}, inventory_policy={inventory_policy}")
+        
+        # Perform ultra-fast update
+        success = self.product_manager.ultra_fast_update(handle, published, inventory_policy)
+        
+        if success:
+            if not self.silent:
+                print(f"    ✅ Ultra-fast update successful!")
+            self.upload_metrics['successful_uploads'] += 1
+        else:
+            if not self.silent:
+                print(f"    ❌ Ultra-fast update failed (product may not exist)")
+            self.upload_metrics['failed_uploads'] += 1
+    
     def _process_additional_images(self, handle: str, product_rows: List[Dict]) -> None:
         """Process additional images for an existing product."""
+        if self.skip_images:
+            print(f"    🚫 Skipping image processing (--skip-images flag set)")
+            self.upload_metrics['skipped_uploads'] += 1
+            return
+            
         print(f"    📸 Processing additional images...")
         
         # Extract image URLs
@@ -201,7 +287,9 @@ class ShopifyUploader:
         
         try:
             # Map CSV data to product structure
-            product_data = self.product_manager.map_row_to_product(main_row)
+            mapped_data = self.product_manager.map_row_to_product(main_row)
+            product_data = {'input': mapped_data['input']}
+            variant_data = mapped_data.get('variant_data')
             
             # Validate product data
             if not self.product_manager.validate_product_data(product_data):
@@ -216,41 +304,47 @@ class ShopifyUploader:
                 
                 if self.product_manager.has_product_changed(product_data, handle):
                     print(f"    🔄 Product has changes, updating...")
-                    product_id = self.product_manager.upload_product(product_data, existing_product_id)
+                    product_id = self.product_manager.upload_product(product_data, existing_product_id, variant_data)
                     self.upload_metrics['successful_uploads'] += 1
                     print(f"    ✅ Successfully updated product!")
                     self.logger.debug(f"Successfully updated product with ID: {product_id}")
                     
                     # Manage images for updated product
-                    image_urls = self.product_manager.extract_images_from_rows(product_rows)
-                    if image_urls:
-                        self.image_manager.manage_product_images(product_id, image_urls, handle, force_update=True)
+                    if not self.skip_images:
+                        image_urls = self.product_manager.extract_images_from_rows(product_rows)
+                        if image_urls:
+                            self.image_manager.manage_product_images(product_id, image_urls, handle, force_update=True)
+                    else:
+                        print(f"    🚫 Skipping image processing (--skip-images flag set)")
                 else:
                     print(f"    ⏭️  No changes detected, skipping update")
                     self.logger.debug(f"Product {handle} unchanged, skipping")
                     self.upload_metrics['skipped_uploads'] += 1
                     
                     # Run duplicate cleanup for unchanged products if requested
-                    if self.cleanup_duplicates:
+                    if self.cleanup_duplicates and not self.skip_images:
                         print(f"    🧹 Running duplicate cleanup for unchanged product...")
                         image_urls = self.product_manager.extract_images_from_rows(product_rows)
                         self.image_manager.manage_product_images(existing_product_id, image_urls, 
                                                                handle, force_update=False, cleanup_only=True)
                     else:
-                        print(f"    🖼️  Skipping image processing (product unchanged)")
+                        reason = "skip-images flag set" if self.skip_images else "product unchanged"
+                        print(f"    🖼️  Skipping image processing ({reason})")
             else:
                 # Create new product
                 print(f"    ➕ Creating new product...")
-                product_id = self.product_manager.upload_product(product_data)
+                product_id = self.product_manager.upload_product(product_data, None, variant_data)
                 self.upload_metrics['successful_uploads'] += 1
                 print(f"    ✅ Successfully created product!")
                 self.logger.debug(f"Successfully created product with ID: {product_id}")
                 
                 # Manage images for new product
-                if product_id:
+                if product_id and not self.skip_images:
                     image_urls = self.product_manager.extract_images_from_rows(product_rows)
                     if image_urls:
                         self.image_manager.manage_product_images(product_id, image_urls, handle, force_update=True)
+                elif self.skip_images:
+                    print(f"    🚫 Skipping image processing (--skip-images flag set)")
                         
         except Exception as e:
             print(f"    ❌ Failed to process product: {str(e)}")
@@ -266,13 +360,17 @@ class ShopifyUploader:
         print(f"    🧹 Duplicates cleaned: {self.upload_metrics['duplicates_cleaned']}")
         print(f"    🔄 Retries: {self.upload_metrics['retry_count']}")
         
+        if self.skip_images:
+            print(f"    🚫 Images skipped: All (--skip-images flag enabled)")
+        
         self.logger.info(
             f"Upload completed - "
             f"Successful: {self.upload_metrics['successful_uploads']}, "
             f"Skipped: {self.upload_metrics['skipped_uploads']}, "
             f"Failed: {self.upload_metrics['failed_uploads']}, "
             f"Duplicates cleaned: {self.upload_metrics['duplicates_cleaned']}, "
-            f"Retries: {self.upload_metrics['retry_count']}"
+            f"Retries: {self.upload_metrics['retry_count']}, "
+            f"Images skipped: {self.skip_images}"
         )
 
 def main() -> None:
@@ -291,15 +389,30 @@ def main() -> None:
     parser.add_argument('--data-source', choices=['default', 'etilize'], default='default',
                       help='Data source format (affects column mapping)')
     parser.add_argument('--limit', type=int, help='Limit number of products to import (for testing)')
+    parser.add_argument('--start-from', type=int, help='Start processing from a specific product number (for resuming interrupted uploads)')
     parser.add_argument('--validate-token', action='store_true', help='Validate Shopify access token')
     parser.add_argument('--cleanup-duplicates', action='store_true', 
                       help='Force cleanup of duplicate images even for unchanged products')
+    parser.add_argument('--skip-images', action='store_true',
+                      help='Skip all image processing to speed up uploads (products only)')
+    parser.add_argument('--ultra-fast', action='store_true',
+                      help='Ultra-fast mode: Only update published status and inventory policy for existing products')
+    parser.add_argument('--silent', action='store_true',
+                      help='Silent mode: Minimal output, only show summary')
+    parser.add_argument('--turbo', action='store_true',
+                      help='Turbo mode: Reduce API delays (use with caution)')
+    parser.add_argument('--hyper', action='store_true',
+                      help='Hyper mode: Minimum delays, maximum risk of rate limits')
     
     if len(sys.argv) == 1 or '--help' in sys.argv or '-h' in sys.argv:
         print("\nExample usage:")
         print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN")
         print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --data-source etilize")
         print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --limit 10 --debug")
+        print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --start-from 50")
+        print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --start-from 100 --limit 50")
+        print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --skip-images")
+        print("python shopify_uploader_new.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --ultra-fast")
         print("python shopify_uploader_new.py --shop-url store.myshopify.com --access-token TOKEN --validate-token")
         sys.exit(1)
     
@@ -320,7 +433,12 @@ def main() -> None:
             max_workers=args.max_workers,
             debug=args.debug,
             data_source=args.data_source,
-            cleanup_duplicates=args.cleanup_duplicates
+            cleanup_duplicates=args.cleanup_duplicates,
+            skip_images=args.skip_images,
+            ultra_fast=args.ultra_fast,
+            silent=args.silent,
+            turbo=args.turbo,
+            hyper=args.hyper
         )
         
         if args.validate_token:
@@ -336,7 +454,7 @@ def main() -> None:
             sys.exit(1)
         
         # Process the CSV file
-        uploader.process_csv(args.csv_file, args.limit)
+        uploader.process_csv(args.csv_file, args.limit, args.start_from)
         
         print(f"\n🎉 Upload process completed successfully!")
         

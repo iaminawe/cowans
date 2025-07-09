@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the comprehensive SQLite database system that has been integrated into the Cowan's Product Feed Integration System. The database provides persistent storage for products, categories, icons, and all related data, replacing the previous file-based storage approach.
+This document describes the comprehensive SQLite database system that has been integrated into the Cowans Office Supplies Integration System. The database provides persistent storage for products, categories, icons, and all related data, replacing the previous file-based storage approach.
 
 ## Database Schema
 
@@ -325,4 +325,4 @@ with get_db_session() as session:
 
 ## Conclusion
 
-The database integration provides a robust, scalable foundation for the Cowan's Product Feed Integration System. With comprehensive tooling, proper migrations, and clean architecture, the system is ready for both development and production use.
+The database integration provides a robust, scalable foundation for the Cowans Office Supplies Integration System. With comprehensive tooling, proper migrations, and clean architecture, the system is ready for both development and production use.

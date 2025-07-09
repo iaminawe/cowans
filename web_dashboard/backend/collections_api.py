@@ -1,6 +1,7 @@
 """Collections API endpoints for managing product collections."""
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from services.supabase_auth import supabase_jwt_required, get_current_user_id
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime
 from typing import List, Dict, Any
@@ -69,7 +70,8 @@ product_types_schema = ProductTypeSchema(many=True)
 
 
 @collections_bp.route('/', methods=['GET'])
-@jwt_required()
+@collections_bp.route('', methods=['GET'])
+@supabase_jwt_required
 def get_collections():
     """Get all collections with statistics."""
     try:
@@ -91,7 +93,7 @@ def get_collections():
 
 
 @collections_bp.route('/<int:collection_id>', methods=['GET'])
-@jwt_required()
+@supabase_jwt_required
 def get_collection(collection_id: int):
     """Get a single collection with its products."""
     try:
@@ -123,7 +125,7 @@ def get_collection(collection_id: int):
 
 
 @collections_bp.route('/create', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def create_collection():
     """Create a new collection."""
     try:
@@ -174,7 +176,7 @@ def create_collection():
 
 
 @collections_bp.route('/<int:collection_id>', methods=['PUT'])
-@jwt_required()
+@supabase_jwt_required
 def update_collection(collection_id: int):
     """Update a collection."""
     try:
@@ -213,7 +215,7 @@ def update_collection(collection_id: int):
 
 
 @collections_bp.route('/<int:collection_id>/products', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def add_products_to_collection(collection_id: int):
     """Add products to a collection."""
     try:
@@ -250,7 +252,7 @@ def add_products_to_collection(collection_id: int):
 
 
 @collections_bp.route('/<int:collection_id>/products', methods=['DELETE'])
-@jwt_required()
+@supabase_jwt_required
 def remove_products_from_collection(collection_id: int):
     """Remove products from a collection."""
     try:
@@ -285,7 +287,7 @@ def remove_products_from_collection(collection_id: int):
 
 
 @collections_bp.route('/<int:collection_id>/sync-to-shopify', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def sync_collection_to_shopify(collection_id: int):
     """Sync a collection to Shopify."""
     try:
@@ -353,7 +355,7 @@ def sync_collection_to_shopify(collection_id: int):
 
 
 @collections_bp.route('/product-types-summary', methods=['GET'])
-@jwt_required()
+@supabase_jwt_required
 def get_product_types_summary():
     """Get summary of product types for collection creation."""
     try:
@@ -381,7 +383,7 @@ def get_product_types_summary():
 
 
 @collections_bp.route('/ai-suggestions', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def get_ai_collection_suggestions():
     """Get AI-powered collection suggestions based on product types."""
     try:
@@ -427,7 +429,7 @@ def get_ai_collection_suggestions():
 
 
 @collections_bp.route('/managed', methods=['GET'])
-@jwt_required()
+@supabase_jwt_required
 def get_managed_collections():
     """Get collections managed by this system (not from Shopify)."""
     try:
@@ -463,3 +465,77 @@ def get_managed_collections():
     except Exception as e:
         logger.error(f"Error fetching managed collections: {str(e)}")
         return jsonify({'error': 'Failed to fetch managed collections'}), 500
+
+
+@collections_bp.route('/bulk-create', methods=['POST'])
+@supabase_jwt_required
+def bulk_create_collections():
+    """Create multiple collections from product types in one operation."""
+    try:
+        data = request.get_json()
+        product_types = data.get('product_types', [])
+        
+        if not product_types:
+            return jsonify({'error': 'No product types provided'}), 400
+        
+        created_collections = []
+        errors = []
+        
+        with db_session_scope() as session:
+            repo = CollectionRepository(session)
+            
+            for pt in product_types:
+                try:
+                    # Get product type details
+                    product_type = pt.get('name')
+                    suggested_name = pt.get('suggested_collection_name', f"{product_type} Collection")
+                    suggested_description = pt.get('suggested_description', f"Browse our selection of {product_type.lower()} products")
+                    
+                    # Create handle
+                    handle = suggested_name.lower().replace(' ', '-').replace('&', 'and')
+                    
+                    # Create collection
+                    collection_data = {
+                        'name': suggested_name,
+                        'handle': handle,
+                        'description': suggested_description,
+                        'rules_type': 'automatic',
+                        'rules_conditions': [{
+                            'field': 'product_type',
+                            'operator': 'equals',
+                            'value': product_type
+                        }],
+                        'disjunctive': False,
+                        'status': 'active',
+                        'created_by': get_current_user_id()
+                    }
+                    
+                    collection = repo.create(collection_data)
+                    
+                    # Update automatic collection to assign products
+                    repo.update_automatic_collection(collection.id)
+                    
+                    created_collections.append({
+                        'id': collection.id,
+                        'name': collection.name,
+                        'handle': collection.handle,
+                        'product_type': product_type,
+                        'products_count': collection.products_count or 0
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Error creating collection for {product_type}: {str(e)}")
+                    errors.append({
+                        'product_type': product_type,
+                        'error': str(e)
+                    })
+        
+        return jsonify({
+            'message': f'Created {len(created_collections)} collections',
+            'created': created_collections,
+            'errors': errors
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error in bulk collection creation: {str(e)}")
+        return jsonify({'error': 'Failed to create collections'}), 500

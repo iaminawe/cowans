@@ -1,8 +1,8 @@
-# System Architecture: Product Feed Integration System
+# System Architecture: Cowans Office Supplies Integration System
 
 ## 1. Overview
 
-This document describes the high-level architecture of the Product Feed Integration System, which automates the synchronization of product data between Etilize and Shopify. The system is designed to be modular, scalable, and testable, following the principles of the SPARC framework. It adheres to the AI verifiable tasks and high-level acceptance tests defined in `PRDMasterPlan.md` and `tests/acceptance/core_functionality_test_plan.md`.
+This document describes the high-level architecture of the Cowans Office Supplies Integration System, which automates the synchronization of product data between Etilize and Shopify. The system is designed to be modular, scalable, and testable, following the principles of the SPARC framework. It adheres to the AI verifiable tasks and high-level acceptance tests defined in `PRDMasterPlan.md` and `tests/acceptance/core_functionality_test_plan.md`.
 
 ## 2. Modules
 
@@ -124,4 +124,4 @@ Unit tests for authentication, integration tests for scheduling, end-to-end test
 *   Implement a rollback strategy to quickly recover from failures.
 *   Implement automated deployment to streamline the release process.
 
-This architecture provides a solid foundation for building the Product Feed Integration System. It is designed to be modular, scalable, and testable, and it supports the AI verifiable tasks and high-level acceptance tests defined in the project specifications.
+This architecture provides a solid foundation for building the Cowans Office Supplies Integration System. It is designed to be modular, scalable, and testable, and it supports the AI verifiable tasks and high-level acceptance tests defined in the project specifications.

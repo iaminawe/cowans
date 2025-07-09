@@ -1,5 +1,5 @@
 """
-Services package for the Product Feed Integration System.
+Services package for the Cowans Office Supplies Integration System.
 
 This package contains all business logic services that handle:
 - Etilize import and processing

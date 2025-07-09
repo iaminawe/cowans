@@ -172,9 +172,6 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Return to root directory
-cd ../..
-
 # Initialize Frontend
 print_status "Initializing frontend..."
 cd "$FRONTEND_DIR"
@@ -207,18 +204,12 @@ for i in {1..60}; do
     sleep 1
 done
 
-# Optional: Start Celery worker for background tasks
-cd "../$BACKEND_DIR"
-if [ -f "celery_app.py" ] && command_exists celery; then
-    read -p "Would you like to start Celery worker for background tasks? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_status "Starting Celery worker..."
-        celery -A celery_app worker --loglevel=info > "../../$LOG_DIR/celery.log" 2>&1 &
-        CELERY_PID=$!
-        print_success "Celery worker started"
-    fi
-fi
+# Return to root for Celery setup
+cd ..
+
+# Optional: Start Celery worker for background tasks (auto-skip for now)
+cd "$BACKEND_DIR"
+# Celery setup skipped for now - can be enabled later if needed
 
 # Display success message
 echo ""

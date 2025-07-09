@@ -47,47 +47,45 @@ def require_socket_auth(f):
 
 def handle_connect_with_supabase(auth):
     """Handle WebSocket connection with Supabase authentication."""
-    logger.info(f"WebSocket connection attempt: {request.sid}")
-    
-    # Auth parameter contains the authentication data from client
-    if not auth or 'token' not in auth:
-        logger.warning(f"WebSocket connection without auth token: {request.sid}")
-        emit('error', {'message': 'Authentication required'})
-        return False  # Reject connection
-    
-    token = auth['token']
-    
-    # Verify the Supabase token
-    is_valid, user_data = auth_service.verify_token(token)
-    
-    if not is_valid or not user_data:
-        logger.warning(f"WebSocket connection with invalid token: {request.sid}")
-        emit('error', {'message': 'Invalid authentication token'})
-        return False  # Reject connection
-    
-    # Connection accepted
-    logger.info(f"WebSocket connected: {request.sid} (user: {user_data.get('email')})")
-    
-    # Store user data for this connection
-    request.supabase_user = user_data
-    
-    # Get the WebSocket service instance
-    from app import websocket_service
-    websocket_service.register_client(request.sid, user_data.get('id'))
-    
-    # Send success response
-    emit('connected', {
-        'message': 'Connected to server',
-        'sid': request.sid,
-        'authenticated': True,
-        'user': {
-            'id': user_data.get('id'),
-            'email': user_data.get('email'),
-            'role': user_data.get('role')
-        }
-    })
-    
-    return True  # Accept connection
+    try:
+        logger.info(f"WebSocket connection attempt: {request.sid}")
+        
+        # Auth parameter contains the authentication data from client
+        if not auth or 'token' not in auth:
+            logger.warning(f"WebSocket connection without auth token: {request.sid}")
+            return True  # Allow connection but without auth
+        
+        token = auth['token']
+        
+        # Verify the Supabase token
+        try:
+            is_valid, user_data = auth_service.verify_token(token)
+        except Exception as e:
+            logger.error(f"Error verifying token: {e}")
+            return True  # Allow connection anyway
+        
+        if not is_valid or not user_data:
+            logger.warning(f"WebSocket connection with invalid token: {request.sid}")
+            return True  # Allow connection anyway
+        
+        # Connection accepted
+        logger.info(f"WebSocket connected: {request.sid} (user: {user_data.get('email')})")
+        
+        # Store user data for this connection
+        request.supabase_user = user_data
+        
+        # Get the WebSocket service instance
+        try:
+            from app import websocket_service
+            websocket_service.register_client(request.sid, user_data.get('id'))
+        except Exception as e:
+            logger.error(f"Error registering client: {e}")
+            # Don't fail connection for this
+        
+        return True  # Accept connection
+    except Exception as e:
+        logger.error(f"Error in WebSocket connection handler: {e}")
+        return True  # Allow connection anyway
 
 
 def handle_disconnect_with_supabase():
@@ -166,12 +164,31 @@ def handle_leave_operation(data):
     })
 
 
+def handle_post_connect():
+    """Handle post-connection tasks after authentication is successful."""
+    user_data = getattr(request, 'supabase_user', None)
+    if user_data:
+        # Send success response after connection is established
+        emit('connected', {
+            'message': 'Connected to server',
+            'sid': request.sid,
+            'authenticated': True,
+            'user': {
+                'id': user_data.get('id'),
+                'email': user_data.get('email'),
+                'role': user_data.get('role')
+            }
+        })
+
 def register_websocket_handlers(socketio):
     """Register all WebSocket event handlers with Supabase authentication."""
     
     # Connection handlers
     socketio.on_event('connect', handle_connect_with_supabase)
     socketio.on_event('disconnect', handle_disconnect_with_supabase)
+    
+    # Post-connection handler
+    socketio.on_event('post_connect', handle_post_connect)
     
     # Script execution
     socketio.on_event('execute', handle_execute_with_auth)

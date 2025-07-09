@@ -1,4 +1,4 @@
-# High-Level Test Strategy Report: Shopify Product Feed Integration
+# High-Level Test Strategy Report: Cowans Office Supplies Shopify Integration
 
 ## Introduction
 

@@ -158,11 +158,15 @@ class SupabaseAuthService:
                 return False, None
             
             # Extract user info
+            user_metadata = payload.get('user_metadata', {})
             user_data = {
                 "id": payload.get('sub'),
                 "email": payload.get('email'),
                 "role": payload.get('role'),
-                "user_metadata": payload.get('user_metadata', {})
+                "user_metadata": user_metadata,
+                "first_name": user_metadata.get('first_name', ''),
+                "last_name": user_metadata.get('last_name', ''),
+                "is_admin": user_metadata.get('is_admin', False)
             }
             
             return True, user_data
@@ -240,15 +244,59 @@ class SupabaseAuthService:
             logger.error(f"Update metadata error: {str(e)}")
             return False
     
+    def admin_create_user(self, email: str, password: str, user_metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new user with admin privileges."""
+        try:
+            # Use admin client for this operation
+            response = self.admin_client.auth.admin.create_user({
+                "email": email,
+                "password": password,
+                "user_metadata": user_metadata,
+                "email_confirm": True  # Auto-confirm email for admin-created users
+            })
+            
+            if response.user:
+                return response.user
+            else:
+                raise Exception("Failed to create user")
+        except Exception as e:
+            logger.error(f"Admin create user error: {str(e)}")
+            raise
+    
+    def admin_update_user_metadata(self, user_id: str, metadata: Dict[str, Any]) -> bool:
+        """Update user metadata (admin only)."""
+        try:
+            self.admin_client.auth.admin.update_user_by_id(
+                user_id,
+                {"user_metadata": metadata}
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Admin update metadata error: {str(e)}")
+            return False
+    
+    def admin_delete_user(self, user_id: str) -> bool:
+        """Delete a user (admin only)."""
+        try:
+            self.admin_client.auth.admin.delete_user(user_id)
+            return True
+        except Exception as e:
+            logger.error(f"Admin delete user error: {str(e)}")
+            return False
+    
     def _serialize_user(self, user) -> Dict[str, Any]:
         """Serialize Supabase user object"""
+        user_metadata = user.user_metadata or {}
         return {
             "id": user.id,
             "email": user.email,
             "created_at": user.created_at,
             "updated_at": user.updated_at,
-            "user_metadata": user.user_metadata or {},
-            "app_metadata": getattr(user, 'app_metadata', {})
+            "user_metadata": user_metadata,
+            "app_metadata": getattr(user, 'app_metadata', {}),
+            "first_name": user_metadata.get('first_name', ''),
+            "last_name": user_metadata.get('last_name', ''),
+            "is_admin": user_metadata.get('is_admin', False)
         }
     
     def _serialize_session(self, session) -> Dict[str, Any]:
@@ -377,10 +425,21 @@ def require_role(role: str):
             
             user_role = user.get('role', 'authenticated')
             app_metadata = user.get('app_metadata', {})
+            user_metadata = user.get('user_metadata', {})
             user_roles = app_metadata.get('roles', [])
             
             # Check if user has the required role
-            if role not in user_roles and user_role != role:
+            # Support both app_metadata.roles and user_metadata.is_admin
+            is_admin = (
+                role == 'admin' and (
+                    'admin' in user_roles or 
+                    user_role == 'admin' or 
+                    user_metadata.get('is_admin', False)
+                )
+            )
+            
+            if not is_admin and role not in user_roles and user_role != role:
+                logger.warning(f"Role check failed for user {user.get('email', 'unknown')}: required '{role}', has role '{user_role}', roles: {user_roles}")
                 return jsonify({"error": f"Role '{role}' required"}), 403
             
             return f(*args, **kwargs)

@@ -1,5 +1,5 @@
 """
-Database Models for Product Feed Integration System
+Database Models for Cowans Office Supplies Integration System
 
 This module contains SQLAlchemy models for all entities in the system.
 """
@@ -165,6 +165,7 @@ class Product(Base):
     shopify_status = Column(String(20), default='pending')
     last_synced = Column(DateTime)
     title = Column(String(500))  # Alternative field name for name
+    product_type = Column(String(255), index=True)  # Product type for collection generation
     
     # Images
     featured_image_url = Column(String(1000))
@@ -194,11 +195,24 @@ class Product(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     
+    # Version tracking fields (added by enhanced sync system)
+    version = Column(Integer, default=1)
+    last_sync_version = Column(Integer)
+    sync_locked = Column(Boolean, default=False)
+    sync_locked_by = Column(Integer, ForeignKey('users.id'))
+    sync_locked_at = Column(DateTime)
+    
+    # Xorosoft integration fields
+    xorosoft_id = Column(String(100))
+    xorosoft_sku = Column(String(100))
+    stock_synced_at = Column(DateTime)
+    
     # Relationships
     category = relationship("Category", back_populates="products")
     sources = relationship("ProductSource", back_populates="product")
     import_batch = relationship("EtilizeImportBatch")
     collections = relationship("Collection", secondary="product_collections", back_populates="products")
+    sync_locked_by_user = relationship("User", foreign_keys=[sync_locked_by])
     
     # Indexes
     __table_args__ = (
@@ -213,6 +227,10 @@ class Product(Base):
         Index('idx_product_import_batch', 'import_batch_id'),
         Index('idx_product_conflicts', 'has_conflicts'),
         Index('idx_product_quality', 'data_quality_score'),
+        Index('idx_product_version', 'version'),
+        Index('idx_product_sync_locked', 'sync_locked'),
+        Index('idx_product_xorosoft_id', 'xorosoft_id'),
+        Index('idx_product_xorosoft_sku', 'xorosoft_sku'),
     )
     
     @validates('sku')
@@ -796,7 +814,7 @@ class EtilizeImportBatch(Base):
         Index('idx_batch_status', 'status'),
         Index('idx_batch_type', 'import_type'),
         Index('idx_batch_started', 'started_at'),
-        Index('idx_batch_user', 'triggered_by'),
+        Index('idx_etilize_batch_user', 'triggered_by'),
     )
     
     def __repr__(self):
@@ -1103,6 +1121,53 @@ class ShopifySync(Base):
     
     def __repr__(self):
         return f"<ShopifySync(id={self.id}, mode='{self.mode}', status='{self.status}')>"
+
+class BatchOperation(Base):
+    """Batch operation model for tracking bulk operations."""
+    __tablename__ = 'batch_operations'
+    
+    id = Column(Integer, primary_key=True)
+    
+    # Operation details
+    operation_id = Column(String(100), unique=True, nullable=False, index=True)
+    operation_type = Column(String(50), nullable=False)  # sync, update, delete, etc.
+    status = Column(String(50), default='pending', nullable=False)  # pending, running, completed, failed, paused
+    
+    # Progress tracking
+    total_items = Column(Integer, default=0, nullable=False)
+    completed_items = Column(Integer, default=0, nullable=False)
+    failed_items = Column(Integer, default=0, nullable=False)
+    
+    # Timing
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    estimated_completion = Column(DateTime)
+    
+    # Error handling
+    last_error = Column(Text)
+    error_count = Column(Integer, default=0)
+    
+    # User tracking
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    
+    # Metadata
+    operation_data = Column(JSON)  # Additional operation-specific data
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    user = relationship("User")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_batch_op_status', 'status'),
+        Index('idx_batch_op_type', 'operation_type'),
+        Index('idx_batch_op_user', 'user_id'),
+        Index('idx_batch_op_created', 'created_at'),
+    )
+    
+    def __repr__(self):
+        return f"<BatchOperation(id={self.id}, type='{self.operation_type}', status='{self.status}')>"
 
 # Create indexes for performance
 def create_performance_indexes(engine):

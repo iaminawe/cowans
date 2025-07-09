@@ -1,6 +1,6 @@
-# Cowan's Product Feed Integration System
+# Cowans Office Supplies Integration System
 
-This is a comprehensive Product Feed Integration System for Shopify that automates synchronization of product data between Etilize (via FTP) and Shopify. The system provides both automated workflows and a web dashboard for monitoring and control.
+This is a comprehensive Cowans Office Supplies Integration System for Shopify that automates synchronization of product data between Etilize (via FTP) and Shopify. The system provides both automated workflows and a web dashboard for monitoring and control.
 
 ## Quick Start
 

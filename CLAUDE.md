@@ -1,172 +1,396 @@
-# CLAUDE.md
+# Claude Code Configuration for claude-flow
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 🌊 ENTERPRISE-GRADE AI AGENT ORCHESTRATION
 
-## Project Overview
+### 🎯 IMPORTANT: Separation of Responsibilities
 
-This is a Product Feed Integration System for Shopify that automates synchronization of product data between Etilize (via FTP) and Shopify. The system is designed with three main modules:
+#### Claude Code Handles:
+- ✅ **ALL file operations** (Read, Write, Edit, MultiEdit)
+- ✅ **ALL code generation** and development tasks
+- ✅ **ALL bash commands** and system operations
+- ✅ **ALL actual implementation** work
+- ✅ **Project navigation** and code analysis
 
-1. **Core Integration Module** (Python) - Handles FTP download, data transformation, and Shopify API integration
-2. **Web Dashboard Module** (React/TypeScript + Flask) - Provides UI for manual sync triggering and log viewing  
-3. **Authentication and Scheduling Module** (Supabase) - Manages user auth and scheduled syncs
+#### claude-flow Handles:
+- 🐝 **Hive Mind coordination** - Queen-led intelligent swarms
+- 🧠 **Neural orchestration** - 87 MCP tools with collective intelligence
+- 💾 **Enterprise persistence** - SQLite-backed memory and state
+- 📊 **Advanced analytics** - Performance monitoring and optimization
+- 🚀 **Parallel execution** - 2.8-4.4x speed improvements
 
-## Architecture
+### ⚠️ Key Principle:
+**claude-flow orchestrates, Claude Code creates!** claude-flow provides enterprise-grade coordination and collective intelligence to enhance Claude Code's native capabilities.
 
-The system follows a modular architecture with clear separation between:
-- **Backend scripts** (`scripts/`) - Core data processing logic organized in modules
-- **Frontend dashboard** (`frontend/`) - React-based web interface
-- **Web dashboard backend** (`web_dashboard/backend/`) - Flask API for dashboard
+## 🚀 CRITICAL: Parallel Execution & Batch Operations
 
-Key data flow: FTP Downloader → Data Transformer → Shopify Uploader
+### 🚨 MANDATORY RULE #1: BATCH EVERYTHING
 
-## Common Commands
+**When using swarms, you MUST batch ALL operations:**
 
-### Python Backend
-```bash
-# Run full import workflow with interactive prompts
-python scripts/run_import.py
+1. **NEVER** send multiple messages for related operations
+2. **ALWAYS** combine multiple tool calls in ONE message
+3. **PARALLEL** execution is MANDATORY, not optional
+4. **HIVE MIND** coordination enhances batch performance
 
-# Skip specific stages
-python scripts/run_import.py --skip-download --skip-filter
+### ⚡ THE GOLDEN RULE OF SWARMS
 
-# Individual script execution (NEW MODULAR PATHS)
-python scripts/utilities/ftp_downloader.py
-python scripts/data_processing/filter_products.py <input_file> <reference_file>
-python scripts/data_processing/create_metafields.py <input_file>
-
-# Shopify upload (CHOOSE ONE - new modular version recommended)
-python scripts/shopify/shopify_uploader_new.py <csv_file> --shop-url <url> --access-token <token>
-python scripts/shopify/shopify_uploader.py <csv_file> --shop-url <url> --access-token <token>  # Legacy
-
-# Cleanup operations
-python scripts/cleanup/cleanup_duplicate_images.py --shop-url <url> --access-token <token>
-python scripts/cleanup/cleanup_size_duplicates.py --shop-url <url> --access-token <token>
-
-# Debug tools
-python scripts/debug/debug_filter_products.py
-python scripts/debug/debug_metafield_matching.py
-
-# Run Python tests
-pytest
-pytest -m quick    # Basic function tests
-pytest -m integration  # Component interaction tests
-pytest -m e2e      # End-to-end flow tests
-pytest -m performance  # Load and stress tests
+```
+If you need to do X operations, they should be in 1 message, not X messages
 ```
 
-### Frontend Development
-```bash
-cd frontend/
-npm install
-npm start          # Development server
-npm run build      # Production build
-npm test           # Run tests
-npm run test:watch # Watch mode
-npm run test:coverage  # Coverage report
+### 🐝 HIVE MIND BATCH EXAMPLES
+
+**✅ CORRECT - Everything in ONE Message:**
+```javascript
+[Single Message with BatchTool]:
+  Bash("claude-flow hive-mind spawn 'Build REST API'")
+  TodoWrite { todos: [todo1, todo2, todo3, todo4, todo5] }
+  Bash("mkdir -p app/{src,tests,docs}")
+  Write("app/package.json", content)
+  Write("app/README.md", content)
+  Write("app/src/index.js", content)
+  Read("existing-config.json")
+  Read("package.json")
 ```
 
-### Web Dashboard Backend
-```bash
-cd web_dashboard/backend/
-pip install -r requirements.txt
-python app.py      # Start Flask server
+**❌ WRONG - Multiple Messages (NEVER DO THIS):**
+```javascript
+Message 1: claude-flow hive-mind init
+Message 2: claude-flow swarm "task 1"
+Message 3: TodoWrite (one todo)
+Message 4: Bash "mkdir src"
+Message 5: Write "package.json"
+// This is 6x slower and breaks parallel coordination!
 ```
 
-## Script Organization
+## 🚀 Quick Setup
 
-The project uses a modular script organization (see `scripts/README.md` for details):
+### 1. Initialize claude-flow
+```bash
+# First time setup with SPARC methodology
+npx claude-flow@alpha init --sparc
 
-### Shopify Integration (`scripts/shopify/`)
-- `shopify_uploader_new.py` - **RECOMMENDED**: Main modular uploader
-- `shopify_uploader.py` - Legacy monolithic uploader (still functional)
-- `shopify_base.py` - Base classes, rate limiting, GraphQL execution
-- `shopify_image_manager.py` - Image operations and deduplication
-- `shopify_product_manager.py` - Product CRUD and data transformation
+# Or use the interactive wizard (RECOMMENDED)
+npx claude-flow@alpha hive-mind wizard
+```
 
-### Data Processing (`scripts/data_processing/`)
-- `filter_products.py` - Filter products against reference data
-- `categorize_products.py` - Product categorization using taxonomy
-- `create_metafields.py` - Generate Shopify metafields from CSV data
-- `extract_additional_images.py` - Extract additional product images
-- `extract_columns.py` - Column extraction utilities
+### 2. Start Hive Mind System
+```bash
+# Start with UI for complex projects
+claude-flow start --ui --swarm
 
-### Cleanup and Maintenance (`scripts/cleanup/`)
-- `cleanup_duplicate_images.py` - Remove duplicate images from products
-- `cleanup_size_duplicates.py` - Size-based duplicate cleanup
-- `find_duplicate_products.py` - Find duplicate products in Shopify
+# Quick swarm deployment
+claude-flow swarm "build authentication system"
 
-### Utilities (`scripts/utilities/`)
-- `ftp_downloader.py` - Download files from Etilize FTP
-- `check_base_part.py` - Base part number validation
-- `check_metafields.py` - Metafield validation
+# Hive mind with specific objective
+claude-flow hive-mind spawn "optimize database performance"
+```
 
-### Debug Tools (`scripts/debug/`)
-- `debug_base_part_mapping.py` - Debug base part number mapping
-- `debug_filter_products.py` - Debug product filtering
-- `debug_metafield_matching.py` - Debug metafield matching
+## 🐝 HIVE MIND SYSTEM - ADVANCED FEATURES
 
-### Tests (`scripts/tests/`)
-- `test_categorize_products.py` - Test product categorization
-- `test_file_size_detection.py` - Test file size detection
-- `test_xorosoft_api.py` - Test Xorosoft API integration
+### Queen-Led Coordination
+- **Strategic Queen**: Long-term planning and optimization
+- **Tactical Queen**: Task prioritization and rapid response  
+- **Adaptive Queen**: Learning and strategy evolution
 
-## Testing Strategy
+### Worker Agent Types
+- **Researcher**: Web access and data analysis
+- **Coder**: Neural pattern-driven development
+- **Analyst**: Performance analysis and optimization
+- **Architect**: System design with enterprise patterns
+- **Tester**: Comprehensive testing with automation
+- **Reviewer**: Code quality and standards
+- **Optimizer**: Performance tuning and bottleneck analysis
+- **Documenter**: Technical documentation and guides
 
-The project uses a recursive testing strategy with custom pytest markers:
-- `quick`: Basic function tests (run on every code change)
-- `integration`: Component interaction tests (run before merge)  
-- `e2e`: End-to-end flow tests (run nightly)
-- `performance`: Load and stress tests (run weekly)
+### Collective Intelligence Features
+- **Consensus Building**: Critical decisions made collectively
+- **Knowledge Sharing**: Real-time information exchange
+- **Work Stealing**: Dynamic load balancing
+- **Auto-Scaling**: Adaptive agent spawning based on workload
+- **SQLite Persistence**: Enterprise-grade data storage
 
-## Key Files & Directories
+## 📋 CORE COMMANDS
 
-### Main Orchestration
-- `scripts/run_import.py` - Main orchestration script with colorful progress tracking
+### Initialization & Setup
+```bash
+# Interactive setup wizard (RECOMMENDED)
+claude-flow hive-mind wizard
 
-### Data Flow
-- Raw data: `data/` directory (CSV files from Etilize)
-- Processed files: `data/shopify_*.csv` (ready for Shopify upload)
-- Reference data: `data/Xorosoft*.csv` (for product filtering)
+# Initialize with SPARC methodology
+claude-flow init --sparc
 
-### Configuration
-- Environment variables in `.env` file
-- FTP credentials: `FTP_HOST`, `FTP_USERNAME`, `FTP_PASSWORD`
-- Shopify credentials: `SHOPIFY_SHOP_URL`, `SHOPIFY_ACCESS_TOKEN`
-- JWT secret: `JWT_SECRET_KEY`
+# Initialize basic hive mind
+claude-flow hive-mind init
+```
 
-## Development Workflow
+### Swarm Operations
+```bash
+# Deploy intelligent swarm
+claude-flow swarm "build microservices architecture"
 
-1. **Data Processing**: Use `run_import.py` for full workflow or individual scripts for specific stages
-2. **Frontend Changes**: Work in `frontend/` with hot reload via `npm start`
-3. **API Changes**: Modify Flask app in `web_dashboard/backend/app.py`
-4. **Testing**: Run appropriate test markers before committing
+# Spawn hive mind with objective
+claude-flow hive-mind spawn "optimize performance"
 
-## Important Notes
+# Start with monitoring UI
+claude-flow start --ui --swarm --monitor
+```
 
-- The system respects Shopify API rate limits through batch processing
-- Product matching uses SKU or Manufacturer Part Number fields
-- All operations are comprehensively logged for debugging
-- The frontend uses Shadcn/UI components with Tailwind CSS
-- Mock authentication is currently implemented (Supabase integration planned)
-- **NEW**: Advanced duplicate detection includes filename and file size-based deduplication
-- **NEW**: Modular architecture allows for better maintainability and testing
+### Agent Management
+```bash
+# Spawn specific agent types
+claude-flow agent spawn researcher
+claude-flow agent spawn coder --neural
+claude-flow agent spawn architect --enterprise
 
-## Migration from Legacy Scripts
+# List active agents
+claude-flow agent list
 
-When using the new modular architecture:
-- Use `shopify_uploader_new.py` instead of `shopify_uploader.py` for new development
-- Import from organized modules: `from scripts.shopify.shopify_uploader import ShopifyUploader`
-- Use the appropriate module path: `scripts/utilities/ftp_downloader.py` instead of `scripts/ftp_downloader.py`
+# Agent performance metrics
+claude-flow agent metrics
+```
 
-## File Patterns
+### Advanced Features
+```bash
+# SPARC development modes (17 available)
+claude-flow sparc design-thinking
+claude-flow sparc rapid-prototyping
+claude-flow sparc enterprise-architecture
 
-- Test files: `test_*.py`, `*_test.py`, `*_tests.py`
-- Configuration: `*.ini`, `*.json`, `*.env`
-- Data files: `data/*.csv`
-- Build outputs: `frontend/dist/`, `frontend/node_modules/`
+# GitHub automation (6 modes)
+claude-flow github ci-pipeline
+claude-flow github code-review
+claude-flow github release-management
 
-# important-instruction-reminders
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+# Neural training and optimization
+claude-flow training neural-patterns
+claude-flow optimization performance-tuning
+```
+
+## 🎯 SWARM ORCHESTRATION PATTERNS
+
+### You are the HIVE MIND ORCHESTRATOR
+
+**MANDATORY**: When using swarms, you MUST:
+1. **USE HIVE MIND COMMANDS** - Let the Queen coordinate agent spawning
+2. **EXECUTE IN PARALLEL** - Never wait for one task before starting another
+3. **BATCH ALL OPERATIONS** - Multiple operations = Single message
+4. **LEVERAGE COLLECTIVE INTELLIGENCE** - Use consensus and knowledge sharing
+
+### 🔴 CRITICAL: Hive Mind Coordination Protocol
+
+When deploying swarms, ALWAYS use this pattern:
+
+**1️⃣ DEPLOY HIVE MIND (Single Command):**
+```bash
+claude-flow hive-mind spawn "your objective here"
+```
+
+**2️⃣ MONITOR AND COORDINATE:**
+```bash
+claude-flow hive-mind status
+claude-flow hive-mind metrics
+```
+
+**3️⃣ BATCH ALL CLAUDE CODE OPERATIONS:**
+```javascript
+[Single Message with BatchTool]:
+  Read("multiple-files.js")
+  Write("output1.js", content)
+  Write("output2.js", content)
+  Bash("npm install && npm test")
+  TodoWrite({ todos: [all todos at once] })
+```
+
+### ⚡ MANDATORY PARALLEL PATTERN
+
+**THIS IS CORRECT ✅ (Parallel Hive Mind):**
+```javascript
+Message 1: [BatchTool]
+  - Bash("claude-flow hive-mind spawn 'build full-stack app'")
+  - TodoWrite({ todos: [all project todos] })
+
+Message 2: [BatchTool]
+  - Read("package.json")
+  - Read("src/config.js")
+  - Read("database/schema.sql")
+  - Bash("mkdir -p {src,tests,docs}")
+  - Write("src/server.js", content)
+  - Write("src/routes/api.js", content)
+  - Write("tests/integration.test.js", content)
+```
+
+**THIS IS WRONG ❌ (Sequential):**
+```javascript
+Message 1: claude-flow hive-mind init
+Message 2: claude-flow agent spawn coder
+Message 3: Write one file
+Message 4: Write another file
+// This wastes the hive mind's collective intelligence!
+```
+
+## 🎯 REAL-WORLD EXAMPLES
+
+### Full-Stack Development
+```bash
+# Deploy comprehensive development swarm
+claude-flow swarm "build e-commerce platform with React, Node.js, and PostgreSQL" --strategy development --max-agents 8 --parallel --monitor --ui
+```
+
+### Research & Analysis
+```bash
+# Deploy research-focused hive mind
+claude-flow hive-mind spawn "analyze cloud architecture patterns and provide recommendations"
+```
+
+### Performance Optimization
+```bash
+# Deploy optimization swarm
+claude-flow swarm "optimize database queries and API performance" --strategy optimization --max-agents 3 --parallel
+```
+
+## 🧠 NEURAL FEATURES & LEARNING
+
+### Training & Optimization
+```bash
+# Train neural patterns
+claude-flow training neural-patterns --iterations 50
+
+# Performance optimization
+claude-flow optimization performance-tuning --analyze-bottlenecks
+
+# Cognitive pattern analysis
+claude-flow analysis cognitive-patterns --detailed
+```
+
+### Automation & Monitoring
+```bash
+# Intelligent automation
+claude-flow automation workflow-optimization --auto-scale
+
+# Real-time monitoring
+claude-flow monitoring real-time --dashboard --alerts
+
+# Hook management
+claude-flow hooks lifecycle-events --pre-task --post-task
+```
+
+## 📊 VISUAL PROGRESS TRACKING
+
+Use this format when displaying swarm progress:
+
+```
+🐝 Hive Mind Status: ACTIVE
+├── 👑 Queen: Strategic (coordinating 8 workers)
+├── 🏗️ Topology: hierarchical with mesh backup
+├── 👥 Agents: 8/10 active (2 auto-scaling)
+├── ⚡ Mode: parallel execution with work stealing
+├── 📊 Tasks: 15 total (6 complete, 7 in-progress, 2 pending)
+├── 🧠 Collective Memory: 47 decision points stored
+└── 🎯 Objective: 73% complete - Build microservices architecture
+
+Worker Activity:
+├── 🟢 researcher: Analyzing API patterns... (87% complete)
+├── 🟢 coder-1: Building auth service... (62% complete)
+├── 🟢 coder-2: Implementing user CRUD... (45% complete)
+├── 🟢 architect: Designing data layer... (91% complete)
+├── 🟢 tester: Writing integration tests... (34% complete)
+├── 🟢 optimizer: Analyzing performance... (78% complete)
+├── 🟡 reviewer: Waiting for auth completion...
+└── 🟢 documenter: Creating API docs... (56% complete)
+
+📈 Performance Metrics:
+├── Speed Improvement: 3.2x vs sequential
+├── Token Efficiency: 38% reduction
+├── Consensus Decisions: 12 (100% agreement)
+└── Knowledge Shared: 23 insights distributed
+```
+
+## 🎯 BEST PRACTICES
+
+### ✅ DO:
+- Use `claude-flow hive-mind spawn` for complex objectives
+- Leverage collective intelligence for decision-making
+- Use parallel execution for all batch operations
+- Monitor swarm performance with built-in analytics
+- Let the Queen coordinate agent spawning and task distribution
+- Use SQLite persistence for enterprise-grade reliability
+
+### ❌ DON'T:
+- Spawn individual agents manually (let the Queen decide)
+- Use sequential operations when parallel is possible
+- Ignore consensus building for critical decisions
+- Forget to monitor swarm performance and metrics
+- Try to coordinate agents manually (trust the hive mind)
+
+## 🚀 ADVANCED FEATURES
+
+### Enterprise Integration
+- **SQLite Backend**: Production-ready persistence
+- **87 MCP Tools**: Comprehensive operation coverage
+- **Real-time Monitoring**: Performance dashboards
+- **Auto-scaling**: Dynamic resource allocation
+- **Consensus Building**: Democratic decision-making
+- **Knowledge Graph**: Intelligent information sharing
+
+### Performance Benefits
+- **2.8-4.4x Speed**: Parallel execution improvements
+- **38% Token Reduction**: Efficient coordination
+- **99.7% Uptime**: Enterprise reliability
+- **Auto-healing**: Self-correcting workflows
+- **Predictive Scaling**: AI-driven resource management
+
+### GitHub Integration
+```bash
+# Automated CI/CD pipeline
+claude-flow github ci-pipeline --auto-deploy --testing
+
+# Code review automation
+claude-flow github code-review --quality-gates --security-scan
+
+# Release management
+claude-flow github release-management --semantic-versioning --changelog
+```
+
+## 🔧 Configuration & Setup
+
+### Environment Setup
+```bash
+# Create project configuration
+claude-flow init --sparc --enterprise
+
+# Configure hive mind settings
+claude-flow config hive-mind --queens 3 --max-workers 12
+
+# Set up monitoring
+claude-flow config monitoring --real-time --alerts --dashboard
+```
+
+### Integration with Claude Code
+claude-flow automatically integrates with Claude Code's native capabilities:
+- File operations remain with Claude Code
+- Swarm coordination handled by claude-flow
+- Seamless batch operation support
+- Persistent memory across sessions
+- Real-time performance monitoring
+
+## 📚 Documentation & Support
+
+- **Main Documentation**: https://github.com/ruvnet/claude-code-flow
+- **Hive Mind Guide**: https://github.com/ruvnet/claude-code-flow/docs/hive-mind
+- **Enterprise Features**: https://github.com/ruvnet/claude-code-flow/docs/enterprise
+- **Examples**: https://github.com/ruvnet/claude-code-flow/examples
+- **Issues**: https://github.com/ruvnet/claude-code-flow/issues
+
+## 🎯 INTEGRATION TIPS
+
+1. **Start with the Wizard**: `claude-flow hive-mind wizard` for guided setup
+2. **Use Batch Operations**: Always combine multiple operations in single messages
+3. **Trust the Queen**: Let the hive mind coordinate agent spawning
+4. **Monitor Performance**: Use built-in analytics for optimization
+5. **Leverage Persistence**: SQLite backend maintains state across sessions
+6. **Enable Auto-scaling**: Let the system adapt to workload demands
+
+---
+
+**Remember**: claude-flow orchestrates with collective intelligence, Claude Code creates with precision! Start with `claude-flow hive-mind wizard` to unlock enterprise-grade AI coordination.

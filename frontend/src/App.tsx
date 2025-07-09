@@ -93,7 +93,7 @@ function AppContent() {
       syncStatus={syncLoading ? 'syncing' : 'ready'}
       lastSyncTime={logs.find(log => log.status === 'success')?.timestamp}
       onLogout={handleLogout}
-      user={user}
+      user={user || undefined}
       isLoading={syncLoading}
     >
       {/* Navigation using NavigationTabs component */}

@@ -52,11 +52,11 @@ def upgrade():
     )
     
     # Create indexes for etilize_import_batches
-    op.create_index('idx_batch_status', 'etilize_import_batches', ['status'])
-    op.create_index('idx_batch_type', 'etilize_import_batches', ['import_type'])
-    op.create_index('idx_batch_started', 'etilize_import_batches', ['started_at'])
-    op.create_index('idx_batch_user', 'etilize_import_batches', ['triggered_by'])
-    op.create_index('idx_batch_uuid', 'etilize_import_batches', ['batch_uuid'])
+    op.create_index('idx_etilize_batch_status', 'etilize_import_batches', ['status'])
+    op.create_index('idx_etilize_batch_type', 'etilize_import_batches', ['import_type'])
+    op.create_index('idx_etilize_batch_started', 'etilize_import_batches', ['started_at'])
+    op.create_index('idx_etilize_batch_user', 'etilize_import_batches', ['triggered_by'])
+    op.create_index('idx_etilize_batch_uuid', 'etilize_import_batches', ['batch_uuid'])
     
     # Create EtilizeStagingProduct table
     op.create_table('etilize_staging_products',

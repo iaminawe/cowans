@@ -1,0 +1,515 @@
+2025-07-02 14:15:58,999 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818703696129,gid://shopify/Product/8818718998785,gid://shopify/Product/8818718900481,gid://shopify/Product/8818756649217,gid://shopify/Product/8818756583681 to collection'}]
+2025-07-02 14:16:00,297 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818756681985,gid://shopify/Product/8818798395649,gid://shopify/Product/8818800034049,gid://shopify/Product/8818764022017,gid://shopify/Product/8818800001281 to collection'}]
+2025-07-02 14:16:01,573 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818763890945,gid://shopify/Product/8818763956481,gid://shopify/Product/8818798362881,gid://shopify/Product/8818763858177,gid://shopify/Product/8818764087553 to collection'}]
+2025-07-02 14:16:02,876 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818763825409,gid://shopify/Product/8818718703873,gid://shopify/Product/8818703565057,gid://shopify/Product/8818718736641,gid://shopify/Product/8818703270145 to collection'}]
+2025-07-02 14:16:04,226 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818722996481,gid://shopify/Product/8818763792641,gid://shopify/Product/8818763759873,gid://shopify/Product/8818771951873,gid://shopify/Product/8818718769409 to collection'}]
+2025-07-02 14:16:05,535 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818720211201,gid://shopify/Product/8818718572801,gid://shopify/Product/8818703401217,gid://shopify/Product/8818722013441,gid://shopify/Product/8818722308353 to collection'}]
+2025-07-02 14:16:06,828 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818789941505,gid://shopify/Product/8818718638337,gid://shopify/Product/8818720178433,gid://shopify/Product/8818720375041,gid://shopify/Product/8818763628801 to collection'}]
+2025-07-02 14:16:17,450 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818729124097,gid://shopify/Product/8818729156865,gid://shopify/Product/8818729091329,gid://shopify/Product/8818806554881,gid://shopify/Product/8818787877121 to collection'}]
+2025-07-02 14:16:18,756 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818787844353,gid://shopify/Product/8818768969985,gid://shopify/Product/8818815238401,gid://shopify/Product/8818690457857,gid://shopify/Product/8818690425089 to collection'}]
+2025-07-02 14:16:20,087 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818690392321 to collection'}]
+2025-07-02 14:16:26,846 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818756747521,gid://shopify/Product/8818711429377,gid://shopify/Product/8818784272641,gid://shopify/Product/8818735972609,gid://shopify/Product/8818733121793 to collection'}]
+2025-07-02 14:16:28,124 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818801934593 to collection'}]
+2025-07-02 14:16:37,066 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818775752961,gid://shopify/Product/8818790990081,gid://shopify/Product/8818790957313,gid://shopify/Product/8818718507265,gid://shopify/Product/8818720440577 to collection'}]
+2025-07-02 14:16:38,345 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818795675905,gid://shopify/Product/8818795806977,gid://shopify/Product/8818714280193 to collection'}]
+2025-07-02 14:16:58,566 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818773655809,gid://shopify/Product/8818709528833,gid://shopify/Product/8818761138433,gid://shopify/Product/8818773623041,gid://shopify/Product/8818760974593 to collection'}]
+2025-07-02 14:17:00,125 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818785026305,gid://shopify/Product/8818773360897,gid://shopify/Product/8818722898177,gid://shopify/Product/8818723848449,gid://shopify/Product/8818784928001 to collection'}]
+2025-07-02 14:17:01,665 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818731811073,gid://shopify/Product/8818735513857,gid://shopify/Product/8818722439425,gid://shopify/Product/8818756976897,gid://shopify/Product/8818761040129 to collection'}]
+2025-07-02 14:17:03,212 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818733023489,gid://shopify/Product/8818773557505,gid://shopify/Product/8818773590273 to collection'}]
+2025-07-02 14:17:08,942 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818815172865,gid://shopify/Product/8818815205633,gid://shopify/Product/8818815140097 to collection'}]
+2025-07-02 14:17:13,595 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818815107329,gid://shopify/Product/8818815205633,gid://shopify/Product/8818815074561 to collection'}]
+2025-07-02 14:17:18,138 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818801508609,gid://shopify/Product/8818815041793 to collection'}]
+2025-07-02 14:17:32,023 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818792694017,gid://shopify/Product/8818814845185,gid://shopify/Product/8818814943489,gid://shopify/Product/8818814877953,gid://shopify/Product/8818814910721 to collection'}]
+2025-07-02 14:17:33,832 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818770706689,gid://shopify/Product/8818782437633,gid://shopify/Product/8818733187329,gid://shopify/Product/8818770804993 to collection'}]
+🚀 Starting product-collection associations from: product_collection_associations.csv
+
+📊 Found 884 associations across 46 collections
+
+[1/46] Processing collection: colouring-activity
+   📦 Products to add: 37
+   ⚠️  Product not found: colours-of-the-world-colouring-book
+   ⚠️  Product not found: food-pals-colouring-book
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[2/46] Processing collection: calligraphy
+   📦 Products to add: 11
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[3/46] Processing collection: clay-sculpting
+   📦 Products to add: 6
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[4/46] Processing collection: face-body-painting
+   📦 Products to add: 9
+   ⚠️  Product not found: finger-paint-paper-12x18
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[5/46] Processing collection: origami-papercraft
+   📦 Products to add: 18
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[6/46] Processing collection: pastels-drawing
+   📦 Products to add: 3
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[7/46] Processing collection: theory-practice
+   📦 Products to add: 3
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[8/46] Processing collection: zentangle
+   📦 Products to add: 2
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[9/46] Processing collection: canvas-stretching-supplies
+   📦 Products to add: 9
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 0 products added so far
+
+[10/46] Processing collection: oil-acrylic-synthetic-filbert-brushes
+   📦 Products to add: 11
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 11 products added so far
+
+[11/46] Processing collection: watercolour-natural-mop-brushes
+   📦 Products to add: 3
+   ✅ Added batch of 3 products
+   🔄 Setting product positions...
+   ✅ Completed: 14 products added so far
+
+[12/46] Processing collection: watercolour-natural-stipple-stencil-brushes
+   📦 Products to add: 2
+   ✅ Added batch of 2 products
+   🔄 Setting product positions...
+   ✅ Completed: 16 products added so far
+
+[13/46] Processing collection: palette-knives
+   📦 Products to add: 5
+   ✅ Added batch of 5 products
+   🔄 Setting product positions...
+   ✅ Completed: 21 products added so far
+
+[14/46] Processing collection: brush-sets-synthetic
+   📦 Products to add: 29
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 50 products added so far
+
+[15/46] Processing collection: pen-ink
+   📦 Products to add: 52
+   ⚠️  Product not found: staedtler-pigment-liners
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 101 products added so far
+
+[16/46] Processing collection: graphite
+   📦 Products to add: 12
+   ⚠️  Product not found: staedtler-lumograph-pencils-sets
+   ⚠️  Product not found: staedtler-lumograph-pencils-singles
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   🔄 Setting product positions...
+   ✅ Completed: 111 products added so far
+
+[17/46] Processing collection: drawing-tools
+   📦 Products to add: 47
+   ⚠️  Product not found: air-duster
+   ⚠️  Product not found: expandable-pencil-box
+   ⚠️  Product not found: geomaster-compass
+   ⚠️  Product not found: iceland-mini-desk-organizer-w-anti-slip-base
+   ⚠️  Product not found: led-illuminated-magnifier
+   ⚠️  Product not found: lyra-kneadable-eraser
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 152 products added so far
+
+[18/46] Processing collection: coloured-pencils
+   📦 Products to add: 16
+   ⚠️  Product not found: prismacolor-scholar-pencil-sets
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   🔄 Setting product positions...
+   ✅ Completed: 167 products added so far
+
+[19/46] Processing collection: markers
+   📦 Products to add: 41
+   ⚠️  Product not found: mildliner-highlighters-sets
+   ⚠️  Product not found: stabilo-point-88-fineliner-pens
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 206 products added so far
+
+[20/46] Processing collection: sketchbooks
+   📦 Products to add: 56
+   ⚠️  Product not found: canson-xl-acrylic-oil-pad
+   ⚠️  Product not found: canson-xl-watercolor-pads
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 260 products added so far
+
+[21/46] Processing collection: pastels
+   📦 Products to add: 15
+   ⚠️  Product not found: pentel-oil-pastel-sets
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 274 products added so far
+
+[22/46] Processing collection: painting-tools
+   📦 Products to add: 14
+   ⚠️  Product not found: air-duster
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 3 products
+   🔄 Setting product positions...
+   ✅ Completed: 287 products added so far
+
+[23/46] Processing collection: watercolour-paints
+   📦 Products to add: 22
+   ⚠️  Product not found: double-ended-watercolour-brush-pens
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 308 products added so far
+
+[24/46] Processing collection: christmas-sale-flyer
+   📦 Products to add: 1
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 309 products added so far
+
+[25/46] Processing collection: wet-media
+   📦 Products to add: 25
+   ⚠️  Product not found: canson-xl-watercolor-pads
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products2025-07-02 14:27:58,270 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818793447681,gid://shopify/Product/8818693439745,gid://shopify/Product/8818705400065,gid://shopify/Product/8818695012609,gid://shopify/Product/8818703794433 to collection'}]
+2025-07-02 14:28:00,071 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818715918593,gid://shopify/Product/8818701074689,gid://shopify/Product/8818705498369,gid://shopify/Product/8818702385409,gid://shopify/Product/8818729812225 to collection'}]
+2025-07-02 14:28:01,855 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818759205121,gid://shopify/Product/8818709561601,gid://shopify/Product/8818756223233,gid://shopify/Product/8818791776513,gid://shopify/Product/8818780045569 to collection'}]
+2025-07-02 14:28:03,632 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818780078337,gid://shopify/Product/8818779422977,gid://shopify/Product/8818718048513,gid://shopify/Product/8818786271489,gid://shopify/Product/8818699796737 to collection'}]
+2025-07-02 14:28:05,434 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818722930945,gid://shopify/Product/8818783584513,gid://shopify/Product/8818733744385,gid://shopify/Product/8818732794113,gid://shopify/Product/8818708939009 to collection'}]
+2025-07-02 14:28:07,246 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818772377857,gid://shopify/Product/8818772148481,gid://shopify/Product/8818689999105,gid://shopify/Product/8818793578753,gid://shopify/Product/8818793513217 to collection'}]
+2025-07-02 14:28:09,020 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818816450817,gid://shopify/Product/8818816188673,gid://shopify/Product/8818799214849,gid://shopify/Product/8818793709825,gid://shopify/Product/8818797379841 to collection'}]
+2025-07-02 14:28:10,821 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818793840897,gid://shopify/Product/8818815435009,gid://shopify/Product/8818708807937,gid://shopify/Product/8818792857857,gid://shopify/Product/8818814517505 to collection'}]
+2025-07-02 14:28:12,614 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818804326657,gid://shopify/Product/8818742624513,gid://shopify/Product/8818753863937,gid://shopify/Product/8818717163777,gid://shopify/Product/8818729746689 to collection'}]
+2025-07-02 14:28:14,384 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818723160321 to collection'}]
+2025-07-02 14:29:05,455 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818798821633,gid://shopify/Product/8818789974273,gid://shopify/Product/8818796822785,gid://shopify/Product/8818813796609,gid://shopify/Product/8818768544001 to collection'}]
+2025-07-02 14:29:07,266 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818787320065,gid://shopify/Product/8818768216321,gid://shopify/Product/8818785943809,gid://shopify/Product/8818799083777,gid://shopify/Product/8818768347393 to collection'}]
+2025-07-02 14:29:09,039 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818769821953,gid://shopify/Product/8818785124609,gid://shopify/Product/8818798919937,gid://shopify/Product/8818798952705,gid://shopify/Product/8818799378689 to collection'}]
+2025-07-02 14:29:10,839 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818799411457,gid://shopify/Product/8818799280385,gid://shopify/Product/8818768249089,gid://shopify/Product/8818784665857,gid://shopify/Product/8818784731393 to collection'}]
+2025-07-02 14:29:12,632 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818784993537,gid://shopify/Product/8818798887169,gid://shopify/Product/8818799018241,gid://shopify/Product/8818799051009,gid://shopify/Product/8818689868033 to collection'}]
+2025-07-02 14:29:14,604 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818689900801,gid://shopify/Product/8818744164609,gid://shopify/Product/8818746884353,gid://shopify/Product/8818768314625,gid://shopify/Product/8818768380161 to collection'}]
+2025-07-02 14:29:16,403 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818784764161,gid://shopify/Product/8818798985473,gid://shopify/Product/8818724176129,gid://shopify/Product/8818724274433,gid://shopify/Product/8818744099073 to collection'}]
+2025-07-02 14:29:18,189 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818744197377,gid://shopify/Product/8818769658113,gid://shopify/Product/8818799247617 to collection'}]
+2025-07-02 14:30:23,647 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818724012289,gid://shopify/Product/8818734760193,gid://shopify/Product/8818734956801,gid://shopify/Product/8818735284481,gid://shopify/Product/8818782011649 to collection'}]
+2025-07-02 14:30:25,421 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818794660097,gid://shopify/Product/8818795086081,gid://shopify/Product/8818795184385,gid://shopify/Product/8818795249921,gid://shopify/Product/8818795348225 to collection'}]
+2025-07-02 14:30:27,257 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818800722177,gid://shopify/Product/8818800787713,gid://shopify/Product/8818800951553 to collection'}]
+2025-07-02 14:32:06,246 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818770149633,gid://shopify/Product/8818699337985,gid://shopify/Product/8818748293377,gid://shopify/Product/8818748391681,gid://shopify/Product/8818696814849 to collection'}]
+2025-07-02 14:32:16,844 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818814976257,gid://shopify/Product/8818814550273,gid://shopify/Product/8818814812417,gid://shopify/Product/8818715066625,gid://shopify/Product/8818692096257 to collection'}]
+2025-07-02 14:32:18,608 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818709496065 to collection'}]
+2025-07-02 14:32:26,642 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818800165121,gid://shopify/Product/8818800263425,gid://shopify/Product/8818800197889,gid://shopify/Product/8818800230657 to collection'}]
+2025-07-02 14:34:05,957 - __main__ - ERROR - User errors: [{'field': ['productIds'], 'message': 'Error adding gid://shopify/Product/8818699829505 to collection'}]
+2025-07-02 14:36:15,667 - __main__ - ERROR - User errors: [{'field': ['id'], 'message': "Can't manually add products to a smart collection"}]
+2025-07-02 14:36:17,435 - __main__ - ERROR - User errors: [{'field': ['id'], 'message': "Can't manually add products to a smart collection"}]
+2025-07-02 14:36:19,195 - __main__ - ERROR - User errors: [{'field': ['id'], 'message': "Can't manually add products to a smart collection"}]
+2025-07-02 14:36:20,967 - __main__ - ERROR - User errors: [{'field': ['id'], 'message': "Can't manually add products to a smart collection"}]
+2025-07-02 14:36:22,737 - __main__ - ERROR - User errors: [{'field': ['id'], 'message': "Can't manually add products to a smart collection"}]
+
+   🔄 Setting product positions...
+   ✅ Completed: 333 products added so far
+
+[26/46] Processing collection: art-workshops
+   📦 Products to add: 14
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 347 products added so far
+
+[27/46] Processing collection: acrylic-paints
+   📦 Products to add: 46
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 347 products added so far
+
+[28/46] Processing collection: acrylic-mediums
+   📦 Products to add: 38
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 347 products added so far
+
+[29/46] Processing collection: instructional
+   📦 Products to add: 28
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 3 products
+   🔄 Setting product positions...
+   ✅ Completed: 375 products added so far
+
+[30/46] Processing collection: kids-activity
+   📦 Products to add: 16
+   ⚠️  Product not found: colours-of-the-world-colouring-book
+   ⚠️  Product not found: food-pals-colouring-book
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 389 products added so far
+
+[31/46] Processing collection: card-making
+   📦 Products to add: 13
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 389 products added so far
+
+[32/46] Processing collection: crafts
+   📦 Products to add: 21
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 410 products added so far
+
+[33/46] Processing collection: textile-arts
+   📦 Products to add: 35
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   🔄 Setting product positions...
+   ✅ Completed: 445 products added so far
+
+[34/46] Processing collection: canvas-boards
+   📦 Products to add: 5
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 445 products added so far
+
+[35/46] Processing collection: birch-boards
+   📦 Products to add: 6
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 445 products added so far
+
+[36/46] Processing collection: blackwing
+   📦 Products to add: 4
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 445 products added so far
+
+[37/46] Processing collection: cowans-christmas-art-kits
+   📦 Products to add: 2
+   ✅ Added batch of 2 products
+   🔄 Setting product positions...
+   ✅ Completed: 447 products added so far
+
+[38/46] Processing collection: watercolour-tubes
+   📦 Products to add: 15
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   🔄 Setting product positions...
+   ✅ Completed: 462 products added so far
+
+[39/46] Processing collection: stretched-canvas
+   📦 Products to add: 17
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 2 products
+   🔄 Setting product positions...
+   ✅ Completed: 479 products added so far
+
+[40/46] Processing collection: whats-new
+   📦 Products to add: 74
+   ⚠️  Product not found: indigenous-8-5x11-cahier-workbooks
+   ⚠️  Product not found: playhouses
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ❌ Failed to add batch
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 2 products
+   🔄 Setting product positions...
+   ✅ Completed: 546 products added so far
+
+[41/46] Processing collection: spray-paint
+   📦 Products to add: 6
+   ✅ Added batch of 5 products
+   ✅ Added batch of 1 products
+   🔄 Setting product positions...
+   ✅ Completed: 552 products added so far
+
+[42/46] Processing collection: kids-markers
+   📦 Products to add: 22
+   ⚠️  Product not found: double-ended-fibre-tip-pen-sets
+   ⚠️  Product not found: project-xl-poster-marker-sets
+   ⚠️  Product not found: super-tips-washable-markers
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 4 products
+   🔄 Setting product positions...
+   ✅ Completed: 571 products added so far
+
+[43/46] Processing collection: kids-paints
+   📦 Products to add: 27
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 2 products
+   🔄 Setting product positions...
+   ✅ Completed: 598 products added so far
+
+[44/46] Processing collection: kids-pencils-crayons
+   📦 Products to add: 7
+   ✅ Added batch of 5 products
+   ✅ Added batch of 2 products
+   🔄 Setting product positions...
+   ✅ Completed: 605 products added so far
+
+[45/46] Processing collection: kids-art-sets
+   📦 Products to add: 13
+   ✅ Added batch of 5 products
+   ✅ Added batch of 5 products
+   ✅ Added batch of 3 products
+   🔄 Setting product positions...
+   ✅ Completed: 618 products added so far
+
+[46/46] Processing collection: office-furniture
+   📦 Products to add: 26
+   ⚠️  Product not found: toma-mesh-back-synchro-tilter-office-chair
+   ⚠️  Product not found: otg631-multitask-chair
+   ⚠️  Product not found: full-time-medium-back-multi-tilter
+   ⚠️  Product not found: led-illuminated-magnifier
+   ⚠️  Product not found: overtime-high-back-multi-tilter
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   ❌ Failed to add batch
+   🔄 Setting product positions...
+   ✅ Completed: 618 products added so far
+
+✅ Association Summary:
+   📦 Products added: 618
+   ❌ Errors: 266
+   📂 Collections processed: 46

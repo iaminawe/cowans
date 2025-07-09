@@ -275,3 +275,37 @@ class ProductRepository(BaseRepository):
         return self.session.query(Product).filter(
             Product.shopify_synced_at.isnot(None)
         ).order_by(Product.shopify_synced_at.desc()).limit(limit).all()
+    
+    def count_active(self) -> int:
+        """Count active products."""
+        return self.count({'status': ProductStatus.ACTIVE.value, 'is_active': True})
+    
+    def count_synced_to_shopify(self) -> int:
+        """Count products synced to Shopify."""
+        return self.session.query(Product).filter(
+            Product.shopify_product_id.isnot(None)
+        ).count()
+    
+    def count_pending_sync(self) -> int:
+        """Count products pending sync."""
+        return self.session.query(Product).filter(
+            or_(
+                Product.shopify_product_id.is_(None),
+                Product.shopify_sync_status == 'pending'
+            )
+        ).count()
+    
+    def count_created_since(self, since_date) -> int:
+        """Count products created since a specific date."""
+        from datetime import datetime
+        return self.session.query(Product).filter(
+            Product.created_at >= since_date
+        ).count()
+    
+    def get_database_size_mb(self) -> float:
+        """Get approximate database size for products in MB."""
+        # This is a placeholder - actual implementation would query database size
+        # For now, return a reasonable estimate based on product count
+        product_count = self.count_all()
+        # Estimate ~5KB per product record
+        return round((product_count * 5) / 1024, 2)

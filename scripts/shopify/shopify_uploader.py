@@ -119,7 +119,6 @@ mutation productCreate($input: ProductInput!) {
           node {
             id
             sku
-            inventoryQuantity
           }
         }
       }
@@ -145,10 +144,43 @@ mutation productUpdate($input: ProductInput!) {
           node {
             id
             sku
-            inventoryQuantity
           }
         }
       }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+# GraphQL mutation for creating product variants
+CREATE_VARIANT_MUTATION = """
+mutation productVariantCreate($input: ProductVariantInput!) {
+  productVariantCreate(input: $input) {
+    productVariant {
+      id
+      sku
+      price
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+"""
+
+# GraphQL mutation for updating product variants
+UPDATE_VARIANT_MUTATION = """
+mutation productVariantUpdate($input: ProductVariantInput!) {
+  productVariantUpdate(input: $input) {
+    productVariant {
+      id
+      sku
+      price
     }
     userErrors {
       field
@@ -550,16 +582,6 @@ class ShopifyUploader:
                 'productType': input_data.get('productType', ''),
                 'tags': sorted(input_data.get('tags', [])),  # Sort for consistent hashing
             }
-            
-            # Add variant data (assuming single variant for now)
-            variants = input_data.get('variants', [])
-            if variants:
-                variant = variants[0]
-                hash_data['variant'] = {
-                    'sku': variant.get('sku', ''),
-                    'price': variant.get('price', ''),
-                    'inventoryQuantity': variant.get('inventoryQuantities', [{}])[0].get('availableQuantity', 0) if variant.get('inventoryQuantities') else 0
-                }
             
             # Add metafields data
             metafields = input_data.get('metafields', [])
@@ -970,22 +992,12 @@ class ShopifyUploader:
             
             product_input = {
                 'title': title,
-                'handle': handle,  # Include handle in product creation
                 'bodyHtml': self.decode_html_entities(row.get('body_html', '')),
                 'vendor': self.decode_html_entities(row.get('vendor', '')),
                 'productType': self.decode_html_entities(row.get('product_type', '')),
-                'tags': [self.decode_html_entities(t.strip()) for t in row.get('tags', '').split(',') if t.strip()],
-                'variants': [{
-                    'price': row.get('price', '0.00'),
-                    'sku': row.get(self.column_mapping.get('sku', 'sku'), row.get('sku', '')),  # Use mapped SKU field
-                    'inventoryQuantities': [{
-                        'availableQuantity': int(row.get('inventory_quantity', 0))
-                    }]
-                }]
+                'tags': [self.decode_html_entities(t.strip()) for t in row.get('tags', '').split(',') if t.strip()]
             }
-            # Handle metafields - skip if can't parse
-            product_input['variants'][0]['inventoryQuantities'][0]['locationId'] = "gid://shopify/Location/72344797441"
-
+            
             # Always include handle for product identification
             if handle:
                 product_input['handle'] = handle
@@ -1076,14 +1088,24 @@ class ShopifyUploader:
                 self.logger.info(f"Added custom.metadata with metafield data for row {row_num}: {list(metadata_object.keys())}")
 
             
-            return {'input': product_input}
+            # Extract variant data separately
+            variant_data = {
+                'price': row.get('price', '0.00'),
+                'sku': row.get(self.column_mapping.get('sku', 'sku'), row.get('sku', '')),
+                'inventory_quantity': row.get('inventory_quantity', 0)
+            }
+            
+            return {
+                'input': product_input,
+                'variant_data': variant_data
+            }
         
         except Exception as e:
             self.logger.error(f"Error mapping row {row_num}: {str(e)}")
             raise
 
     
-    def upload_product(self, product_data: Dict, product_id: Optional[str] = None) -> str:
+    def upload_product(self, product_data: Dict, product_id: Optional[str] = None, variant_data: Optional[Dict] = None) -> str:
         """Upload or update a single product using GraphQL mutation."""
         if product_id:
             # Update existing product
@@ -1104,9 +1126,65 @@ class ShopifyUploader:
             self.logger.error(f"Product {operation} errors: {product_result['userErrors']}")
             raise Exception(f"Product {operation} errors: {product_result['userErrors']}")
 
-        return product_result['product']['id']
+        created_product_id = product_result['product']['id']
+        
+        # Handle variant if provided
+        if variant_data:
+            try:
+                self.manage_product_variant(created_product_id, variant_data, product_result['product'])
+            except Exception as e:
+                self.logger.warning(f"Failed to manage variant: {str(e)}")
 
-    def process_csv(self, csv_path: str, batch_size: int = 25, limit: Optional[int] = None) -> None:
+        return created_product_id
+
+    def manage_product_variant(self, product_id: str, variant_data: Dict, product_info: Dict) -> str:
+        """Create or update a product variant."""
+        try:
+            # Check if product already has variants
+            existing_variants = product_info.get('variants', {}).get('edges', [])
+            
+            if existing_variants:
+                # Update existing variant
+                variant_id = existing_variants[0]['node']['id']
+                variant_input = {
+                    'id': variant_id,
+                    'price': variant_data.get('price', '0.00'),
+                    'sku': variant_data.get('sku', ''),
+                    'inventoryQuantities': [{
+                        'availableQuantity': int(variant_data.get('inventory_quantity', 0)),
+                        'locationId': "gid://shopify/Location/72344797441"
+                    }]
+                }
+                result = self.execute_graphql(UPDATE_VARIANT_MUTATION, {'input': variant_input})
+                operation = 'productVariantUpdate'
+            else:
+                # Create new variant
+                variant_input = {
+                    'productId': product_id,
+                    'price': variant_data.get('price', '0.00'),
+                    'sku': variant_data.get('sku', ''),
+                    'inventoryQuantities': [{
+                        'availableQuantity': int(variant_data.get('inventory_quantity', 0)),
+                        'locationId': "gid://shopify/Location/72344797441"
+                    }]
+                }
+                result = self.execute_graphql(CREATE_VARIANT_MUTATION, {'input': variant_input})
+                operation = 'productVariantCreate'
+
+            if 'errors' in result:
+                raise Exception(f"GraphQL errors: {result['errors']}")
+
+            variant_result = result.get('data', {}).get(operation, {})
+            if variant_result.get('userErrors'):
+                raise Exception(f"Variant {operation} errors: {variant_result['userErrors']}")
+
+            return variant_result['productVariant']['id']
+            
+        except Exception as e:
+            self.logger.error(f"Failed to manage variant: {str(e)}")
+            raise
+
+    def process_csv(self, csv_path: str, batch_size: int = 25, limit: Optional[int] = None, start_from: Optional[int] = None) -> None:
         """Process product data from CSV file and upload to Shopify."""
         try:
             if not os.path.exists(csv_path):
@@ -1121,6 +1199,8 @@ class ShopifyUploader:
                 # Filter out empty rows and validate as we read
                 rows = []
                 seen_handles = set()
+                product_count = 0
+                
                 for idx, row in enumerate(reader, 1):
                     # Check if row has any non-empty values
                     if any(v.strip() for v in row.values()):
@@ -1135,10 +1215,20 @@ class ShopifyUploader:
                         elif not title and handle:
                             # This is likely an additional image for an existing product
                             self.logger.debug(f"Row {idx}: Additional image for product handle '{handle}'")
-                        if handle in seen_handles:
-                            self.logger.debug(f"Additional image for existing product {handle}")
-                        else:
+                        
+                        # Count unique products for start_from logic
+                        if handle not in seen_handles:
+                            product_count += 1
                             seen_handles.add(handle)
+                            
+                            # Apply start_from filter - skip products before start_from
+                            if start_from and product_count < start_from:
+                                continue
+                        
+                        # If we already processed this handle and it was skipped due to start_from, continue skipping
+                        if start_from and handle in seen_handles and product_count < start_from:
+                            continue
+                            
                         rows.append(row)
                     else:
                         self.logger.debug(f"Skipping empty row {idx}")
@@ -1146,13 +1236,33 @@ class ShopifyUploader:
                 if not rows:
                     raise ValueError("No valid product data found in CSV file")
                 
-                # Apply limit if specified
+                # Apply limit if specified (after start_from)
                 if limit:
-                    self.logger.info(f"Limiting import to first {limit} products")
-                    rows = rows[:limit]
+                    self.logger.info(f"Limiting import to {limit} products")
+                    # Group by handle first to apply limit correctly
+                    handle_groups = {}
+                    for row in rows:
+                        handle = row.get('URL handle', row.get('url handle', '')).strip()
+                        if handle not in handle_groups:
+                            handle_groups[handle] = []
+                        handle_groups[handle].append(row)
+                    
+                    # Take only the first 'limit' unique products
+                    limited_handles = list(handle_groups.keys())[:limit]
+                    rows = []
+                    for handle in limited_handles:
+                        rows.extend(handle_groups[handle])
                 
-                total_products = len(seen_handles)
+                # Recalculate unique handles after filtering
+                final_handles = set()
+                for row in rows:
+                    handle = row.get('URL handle', row.get('url handle', '')).strip()
+                    final_handles.add(handle)
+                
+                total_products = len(final_handles)
                 self.logger.info(f"Processing {total_products} unique products from CSV")
+                if start_from:
+                    self.logger.info(f"Starting from product {start_from}")
                 self.upload_metrics['total_products'] = total_products
 
                 # Process in batches
@@ -1218,7 +1328,9 @@ class ShopifyUploader:
                             
                             # Get product data from first row with title
                             main_row = next((row for row in product_rows if row.get('Title', row.get('title', '')).strip()), product_rows[0])
-                            product_data = self.map_row_to_product(main_row, i + 1)
+                            mapped_data = self.map_row_to_product(main_row, i + 1)
+                            product_data = {'input': mapped_data['input']}
+                            variant_data = mapped_data.get('variant_data')
                             
                             if product_id:
                                 # Product exists - check if it has changed
@@ -1228,7 +1340,7 @@ class ShopifyUploader:
                                 if has_changed:
                                     print(f"    ✏️  Changes detected, updating product...")
                                     self.logger.info(f"Product {handle} has changes, updating")
-                                    product_id = self.upload_product(product_data, product_id)
+                                    product_id = self.upload_product(product_data, product_id, variant_data)
                                     self.upload_metrics['successful_uploads'] += 1
                                     print(f"    ✅ Successfully updated product!")
                                     self.logger.debug(f"Successfully updated product with ID: {product_id}")
@@ -1249,7 +1361,7 @@ class ShopifyUploader:
                             else:
                                 print(f"    ➕ Creating new product...")
                                 # Create new product
-                                product_id = self.upload_product(product_data)
+                                product_id = self.upload_product(product_data, None, variant_data)
                                 self.upload_metrics['successful_uploads'] += 1
                                 print(f"    ✅ Successfully created product!")
                                 self.logger.debug(f"Successfully created product with ID: {product_id}")
@@ -1346,6 +1458,7 @@ def main() -> None:
     parser.add_argument('--data-source', choices=list(COLUMN_MAPPINGS.keys()), default='default',
                       help='Data source format (affects column mapping)')
     parser.add_argument('--limit', type=int, help='Limit number of products to import (for testing)')
+    parser.add_argument('--start-from', type=int, help='Start processing from a specific product number (for resuming interrupted uploads)')
     parser.add_argument('--validate-token', action='store_true', help='Validate Shopify access token')
     parser.add_argument('--cleanup-duplicates', action='store_true', help='Force cleanup of duplicate images even for unchanged products')
     
@@ -1354,6 +1467,8 @@ def main() -> None:
         print("python shopify_uploader.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN")
         print("python shopify_uploader.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --data-source etilize")
         print("python shopify_uploader.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --limit 10 --debug")
+        print("python shopify_uploader.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --start-from 50")
+        print("python shopify_uploader.py data/products.csv --shop-url store.myshopify.com --access-token TOKEN --start-from 100 --limit 50")
         print("python shopify_uploader.py --shop-url store.myshopify.com --access-token TOKEN --validate-token")
         sys.exit(1)
     
@@ -1383,7 +1498,7 @@ def main() -> None:
             except Exception as e:
                 print(f"Shopify access token is invalid: {e}")
         elif args.csv_file:
-            uploader.process_csv(args.csv_file, batch_size=args.batch_size, limit=args.limit)
+            uploader.process_csv(args.csv_file, batch_size=args.batch_size, limit=args.limit, start_from=args.start_from)
         else:
             print("Error: CSV file is required unless --validate-token is used.")
     except Exception as e:

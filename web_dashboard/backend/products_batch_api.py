@@ -1,6 +1,6 @@
 """Products Batch API endpoints for bulk operations."""
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from services.supabase_auth import supabase_jwt_required, get_current_user_id
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime
 from typing import List, Dict, Any
@@ -46,7 +46,7 @@ class BatchDeleteSchema(Schema):
 
 
 @products_batch_bp.route('/update-status', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def batch_update_status():
     """Update status for multiple products."""
     try:
@@ -93,7 +93,7 @@ def batch_update_status():
 
 
 @products_batch_bp.route('/update-category', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def batch_update_category():
     """Update category for multiple products."""
     try:
@@ -131,7 +131,7 @@ def batch_update_category():
 
 
 @products_batch_bp.route('/update-pricing', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def batch_update_pricing():
     """Update pricing for multiple products."""
     try:
@@ -191,7 +191,7 @@ def batch_update_pricing():
 
 
 @products_batch_bp.route('/delete', methods=['DELETE'])
-@jwt_required()
+@supabase_jwt_required
 def batch_delete():
     """Delete multiple products."""
     try:
@@ -235,7 +235,7 @@ def batch_delete():
 
 
 @products_batch_bp.route('/add-to-collection', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def batch_add_to_collection():
     """Add multiple products to a collection."""
     try:
@@ -271,7 +271,7 @@ def batch_add_to_collection():
 
 
 @products_batch_bp.route('/export', methods=['POST'])
-@jwt_required()
+@supabase_jwt_required
 def batch_export():
     """Export selected products to CSV."""
     try:

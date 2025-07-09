@@ -1,1 +1,1 @@
-# Test suite for the Shopify Product Feed Dashboard backend
+# Test suite for the Cowans Office Supplies Dashboard backend

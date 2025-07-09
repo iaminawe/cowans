@@ -22,13 +22,7 @@ class SyncConflictStatus(enum.Enum):
     IGNORED = "ignored"
 
 
-class SyncQueueStatus(enum.Enum):
-    """Status of sync queue items."""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    RETRYING = "retrying"
+# SyncQueueStatus is defined in models.py to avoid duplicate definitions
 
 
 class ChangeTrackingAction(enum.Enum):
@@ -92,70 +86,7 @@ class SyncConflict(Base):
         return f"<SyncConflict(id={self.conflict_id}, entity={self.entity_type}:{self.entity_id}, field={self.field_name})>"
 
 
-class SyncQueue(Base):
-    """Model for sync queue management and prioritization."""
-    __tablename__ = 'sync_queue'
-    
-    id = Column(Integer, primary_key=True)
-    
-    # Queue item identification
-    queue_id = Column(String(100), unique=True, nullable=False, index=True)
-    operation = Column(String(50), nullable=False)  # create, update, delete, sync_down, sync_up
-    entity_type = Column(String(50), nullable=False)
-    entity_id = Column(Integer, nullable=False)
-    
-    # Priority and scheduling
-    priority = Column(Integer, default=3, nullable=False)  # 1=critical, 2=high, 3=normal, 4=low, 5=batch
-    scheduled_at = Column(DateTime, default=func.now(), nullable=False)
-    processing_started_at = Column(DateTime)
-    processing_completed_at = Column(DateTime)
-    
-    # Status and retry
-    status = Column(String(20), default=SyncQueueStatus.PENDING.value, nullable=False)
-    retry_count = Column(Integer, default=0)
-    max_retries = Column(Integer, default=3)
-    next_retry_at = Column(DateTime)
-    
-    # Data and context
-    sync_data = Column(JSON)  # Data to be synced
-    sync_options = Column(JSON)  # Sync options and preferences
-    
-    # Results
-    result_data = Column(JSON)  # Result of the sync operation
-    error_message = Column(Text)
-    warning_messages = Column(JSON)  # Array of warnings
-    
-    # Performance tracking
-    processing_duration = Column(Float)  # Duration in seconds
-    api_calls_used = Column(Integer, default=0)
-    
-    # Dependencies
-    depends_on = Column(JSON)  # Array of queue IDs this item depends on
-    blocks = Column(JSON)  # Array of queue IDs this item blocks
-    
-    # User and job context
-    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
-    job_id = Column(Integer, ForeignKey('jobs.id'))
-    
-    # Audit
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    
-    # Relationships
-    created_by_user = relationship("User")
-    job = relationship("Job")
-    
-    # Indexes
-    __table_args__ = (
-        Index('idx_queue_status_priority', 'status', 'priority'),
-        Index('idx_queue_entity', 'entity_type', 'entity_id'),
-        Index('idx_queue_scheduled', 'scheduled_at'),
-        Index('idx_queue_retry', 'next_retry_at'),
-        Index('idx_queue_job', 'job_id'),
-    )
-    
-    def __repr__(self):
-        return f"<SyncQueue(id={self.queue_id}, operation={self.operation}, entity={self.entity_type}:{self.entity_id})>"
+# SyncQueue is defined in models.py to avoid duplicate table definition
 
 
 class ChangeTracking(Base):

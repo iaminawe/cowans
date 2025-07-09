@@ -1,6 +1,6 @@
 # Framework Scaffold Report
 
-This report summarizes the framework scaffolding activities performed for the Shopify Product Feed Integration System.
+This report summarizes the framework scaffolding activities performed for the Cowans Office Supplies Shopify Integration System.
 
 ## Project Goal
 

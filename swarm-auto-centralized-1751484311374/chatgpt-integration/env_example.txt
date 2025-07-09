@@ -1,0 +1,23 @@
+# Environment Variables for ChatGPT Integration
+# Add these to your .env file
+
+# OpenAI API Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=dall-e-3
+OPENAI_IMAGE_SIZE=1024x1024
+OPENAI_IMAGE_QUALITY=standard
+OPENAI_MAX_RETRIES=3
+OPENAI_TIMEOUT=60
+
+# Rate Limiting Configuration
+OPENAI_RATE_LIMIT_RPM=50
+OPENAI_RATE_LIMIT_TPM=40000
+
+# Image Storage Configuration
+IMAGES_BASE_URL=/api/images/
+IMAGES_MAX_SIZE=5242880
+
+# Batch Processing Configuration
+BATCH_SIZE_DEFAULT=5
+BATCH_TIMEOUT=300
+BATCH_MAX_CONCURRENT=3

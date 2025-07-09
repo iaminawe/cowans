@@ -54,7 +54,7 @@ export function ProductDetailsPanel({ product, onClose }: ProductDetailsPanelPro
                 <span className="font-mono text-sm">{product.sku}</span>
                 {product.shopify_product_id && (
                   <a
-                    href={`https://${process.env.REACT_APP_SHOPIFY_SHOP_URL}/admin/products/${product.shopify_product_id}`}
+                    href={`https://e19833-4.myshopify.com/admin/products/${product.shopify_product_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800"

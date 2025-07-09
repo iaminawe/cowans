@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PostgreSQL Migration Script for Product Feed Integration System
+PostgreSQL Migration Script for Cowans Office Supplies Integration System
 
 This script migrates data from SQLite to PostgreSQL (Supabase) and tests the connection.
 Part of Phase 1 Week 1 implementation orchestrated by ruv-swarm.
