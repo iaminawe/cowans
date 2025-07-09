@@ -1,147 +1,39 @@
-interface User {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  is_admin: boolean;
-  created_at?: string;
-  last_login?: string;
-}
+import type {
+  AuthUser,
+  LoginResponse,
+  RegisterResponse,
+  UserProfileResponse,
+  SyncHistoryItem,
+  ImportHistoryItem,
+  ImportStatus,
+  ImportValidationResult,
+  ShopifySyncConfiguration,
+  ShopifySyncStatus,
+  ShopifySyncHistoryItem,
+  SyncMode,
+  SyncFlag,
+  ImportBatch,
+  SyncableProduct,
+  Collection,
+  XorosoftConnectionStatus,
+  XorosoftInventoryComparison,
+  XorosoftSyncHistory,
+  FTPConnectionStatus,
+  EtilizeFTPScanResult,
+  EtilizeImportHistory,
+  EnhancedSyncMetrics,
+  StagedChangesResponse,
+  SyncBatchesResponse,
+  ShopifySyncManagerStatus,
+  WorkerPoolStatus,
+  QueueDepth,
+  SystemResources,
+  SyncAlert,
+  BulkOperation
+} from '../types/api';
 
-interface LoginResponse {
-  access_token: string;
-  user: User;
-}
-
-interface RegisterResponse {
-  access_token: string;
-  user: User;
-  message: string;
-}
-
-interface UserProfileResponse {
-  user: User;
-}
-
-interface SyncHistoryItem {
-  id: string;
-  timestamp: string;
-  status: 'success' | 'error' | 'running';
-  message: string;
-  details?: string;
-}
-
-interface ImportHistoryItem {
-  import_id: string;
-  success: boolean;
-  total_records: number;
-  imported_records: number;
-  failed_records: number;
-  duration_seconds: number;
-  batch_id: number;
-  errors: string[];
-}
-
-interface ImportStatus {
-  import_id: string;
-  status: string;
-  stage: string;
-  total_records: number;
-  processed_records: number;
-  imported_records: number;
-  failed_records: number;
-  progress_percentage: number;
-  current_operation: string;
-  errors: string[];
-}
-
-interface ImportValidationResult {
-  valid: boolean;
-  total_records?: number;
-  sample_records?: any[];
-  available_columns?: string[];
-  message?: string;
-  error?: string;
-}
-
-interface ShopifySyncConfiguration {
-  mode: string;
-  flags: string[];
-  batch_size?: number;
-  max_workers?: number;
-  shop_url?: string;
-  access_token?: string;
-  data_source?: string;
-  limit?: number;
-  start_from?: number;
-  filters?: Record<string, any>;
-  import_batch_id?: number;
-}
-
-interface ShopifySyncStatus {
-  sync_id: string;
-  status: string;
-  mode: string;
-  total_products: number;
-  successful_uploads: number;
-  failed_uploads: number;
-  skipped_uploads: number;
-  progress_percentage: number;
-  current_operation: string;
-  errors: string[];
-  warnings: string[];
-  created_at?: string;
-  started_at?: string;
-  completed_at?: string;
-}
-
-interface ShopifySyncHistoryItem {
-  sync_id: string;
-  status: string;
-  mode: string;
-  total_products: number;
-  successful_uploads: number;
-  failed_uploads: number;
-  duration_seconds?: number;
-  created_at?: string;
-  completed_at?: string;
-}
-
-interface SyncMode {
-  value: string;
-  label: string;
-  description: string;
-}
-
-interface SyncFlag {
-  value: string;
-  label: string;
-  description: string;
-}
-
-interface ImportBatch {
-  id: number;
-  filename: string;
-  status: string;
-  total_records: number;
-  product_count: number;
-  created_at?: string;
-  completed_at?: string;
-}
-
-interface SyncableProduct {
-  id: number;
-  sku: string;
-  title: string;
-  category: string;
-  status: string;
-  shopify_id?: string;
-  shopify_status: string;
-  last_synced?: string;
-  has_conflicts: boolean;
-  primary_source: string;
-  price?: number;
-}
+// Type alias for backwards compatibility
+type User = AuthUser;
 
 class ApiClient {
   private baseUrl: string;
@@ -246,14 +138,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
+  async put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -285,14 +177,14 @@ class ApiClient {
     return response.json();
   }
 
-  async validateImport(filePath: string, config?: any): Promise<ImportValidationResult> {
+  async validateImport(filePath: string, config?: unknown): Promise<ImportValidationResult> {
     return this.request<ImportValidationResult>('/import/validate', {
       method: 'POST',
       body: JSON.stringify({ file_path: filePath, config }),
     });
   }
 
-  async executeImport(filePath: string, config?: any): Promise<{import_id: string}> {
+  async executeImport(filePath: string, config?: unknown): Promise<{import_id: string}> {
     return this.request<{import_id: string}>('/import/execute', {
       method: 'POST',
       body: JSON.stringify({ file_path: filePath, config }),
@@ -368,7 +260,7 @@ class ApiClient {
     return this.request<{batches: ImportBatch[]}>('/shopify/batches');
   }
 
-  async validateShopifyConfig(config: Partial<ShopifySyncConfiguration>): Promise<{valid: boolean, errors?: string[]}> {
+  async validateShopifyConfig(config: unknown): Promise<{valid: boolean, errors?: string[]}> {
     return this.request<{valid: boolean, errors?: string[]}>('/shopify/validate', {
       method: 'POST',
       body: JSON.stringify(config),
@@ -379,17 +271,17 @@ class ApiClient {
   async getCollections(params?: {
     status?: string;
     include_archived?: boolean;
-  }): Promise<{collections: any[], total: number}> {
+  }): Promise<{collections: Collection[], total: number}> {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);
     if (params?.include_archived) queryParams.append('include_archived', params.include_archived.toString());
     
     const url = `/collections${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return this.request<{collections: any[], total: number}>(url);
+    return this.request<{collections: Collection[], total: number}>(url);
   }
 
-  async getCollection(collectionId: number): Promise<any> {
-    return this.request<any>(`/collections/${collectionId}`);
+  async getCollection(collectionId: number): Promise<Collection> {
+    return this.request<Collection>(`/collections/${collectionId}`);
   }
 
   async createCollection(data: {
@@ -397,21 +289,21 @@ class ApiClient {
     handle: string;
     description?: string;
     rules_type?: 'manual' | 'automatic';
-    rules_conditions?: any[];
+    rules_conditions?: unknown[];
     disjunctive?: boolean;
     status?: string;
     sort_order?: string;
     seo_title?: string;
     seo_description?: string;
-  }): Promise<{message: string, collection: any}> {
-    return this.request<{message: string, collection: any}>('/collections/create', {
+  }): Promise<{message: string, collection: Collection}> {
+    return this.request<{message: string, collection: Collection}>('/collections/create', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateCollection(collectionId: number, data: any): Promise<{message: string, collection: any}> {
-    return this.request<{message: string, collection: any}>(`/collections/${collectionId}`, {
+  async updateCollection(collectionId: number, data: unknown): Promise<{message: string, collection: Collection}> {
+    return this.request<{message: string, collection: Collection}>(`/collections/${collectionId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -437,23 +329,23 @@ class ApiClient {
     });
   }
 
-  async getProductTypesSummary(): Promise<{product_types: any[], total: number}> {
-    return this.request<{product_types: any[], total: number}>('/collections/product-types-summary');
+  async getProductTypesSummary(): Promise<{product_types: Array<{value: string, label: string, count: number}>, total: number}> {
+    return this.request<{product_types: Array<{value: string, label: string, count: number}>, total: number}>('/collections/product-types-summary');
   }
 
-  async getAICollectionSuggestions(productTypes: string[]): Promise<{suggestions: any[]}> {
-    return this.request<{suggestions: any[]}>('/collections/ai-suggestions', {
+  async getAICollectionSuggestions(productTypes: string[]): Promise<{suggestions: Array<{name: string, handle: string, description: string, product_types: string[], estimated_products: number, confidence_score: number}>}> {
+    return this.request<{suggestions: Array<{name: string, handle: string, description: string, product_types: string[], estimated_products: number, confidence_score: number}>}>('/collections/ai-suggestions', {
       method: 'POST',
       body: JSON.stringify({ product_types: productTypes }),
     });
   }
 
-  async getManagedCollections(): Promise<{collections: any[]}> {
-    return this.request<{collections: any[]}>('/collections/managed');
+  async getManagedCollections(): Promise<{collections: Collection[]}> {
+    return this.request<{collections: Collection[]}>('/collections/managed');
   }
 
   // Parallel Sync Methods
-  async startParallelSync(request: any): Promise<{operation_id: string}> {
+  async startParallelSync(request: unknown): Promise<{operation_id: string}> {
     return this.request<{operation_id: string}>('/shopify/sync/parallel/start', {
       method: 'POST',
       body: JSON.stringify(request),
@@ -466,8 +358,8 @@ class ApiClient {
     });
   }
 
-  async getParallelSyncStatus(): Promise<any> {
-    return this.request<any>('/shopify/sync/parallel/status');
+  async getParallelSyncStatus(): Promise<ShopifySyncManagerStatus> {
+    return this.request<ShopifySyncManagerStatus>('/shopify/sync/parallel/status');
   }
 
   async cancelBulkOperation(operationId: string): Promise<{success: boolean}> {
@@ -482,7 +374,7 @@ class ApiClient {
     });
   }
 
-  async downloadBulkOperationResults(operationId: string, config: any): Promise<Blob> {
+  async downloadBulkOperationResults(operationId: string, config: unknown): Promise<Blob> {
     const response = await fetch(`${this.baseUrl}/shopify/sync/bulk/download/${operationId}`, {
       method: 'POST',
       headers: {
@@ -499,11 +391,222 @@ class ApiClient {
 
     return response.blob();
   }
+
+  // Enhanced Sync API Methods
+  async pullFromShopify(config: unknown): Promise<{batch_id: string}> {
+    return this.request<{batch_id: string}>('/sync/shopify/pull', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async getStagedChanges(filters?: unknown): Promise<StagedChangesResponse> {
+    const params = filters ? '?' + new URLSearchParams(filters as Record<string, string>).toString() : '';
+    return this.request<StagedChangesResponse>(`/sync/staged${params}`);
+  }
+
+  async approveStaged(changeId: string): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>(`/sync/staged/${changeId}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectStaged(changeId: string): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>(`/sync/staged/${changeId}/reject`, {
+      method: 'POST',
+    });
+  }
+
+  async bulkApproveStaged(changeIds: string[]): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/sync/staged/bulk-approve', {
+      method: 'POST',
+      body: JSON.stringify({ change_ids: changeIds }),
+    });
+  }
+
+  async pushToShopify(config: unknown): Promise<{batch_id: string}> {
+    return this.request<{batch_id: string}>('/sync/shopify/push', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async getSyncBatches(): Promise<SyncBatchesResponse> {
+    return this.request<SyncBatchesResponse>('/sync/batches');
+  }
+
+  async rollbackSync(batchId: string): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>(`/sync/rollback/${batchId}`, {
+      method: 'POST',
+    });
+  }
+
+  // FTP and Etilize Methods
+  async checkFTPConnection(): Promise<FTPConnectionStatus> {
+    return this.request<FTPConnectionStatus>('/import/etilize/ftp/check');
+  }
+
+  async downloadFromFTP(config: unknown): Promise<{download_id: string}> {
+    return this.request<{download_id: string}>('/import/etilize/ftp/download', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async getFTPDownloadStatus(downloadId: string): Promise<{status: string}> {
+    return this.request<{status: string}>(`/import/etilize/ftp/download/${downloadId}/status`);
+  }
+
+
+  // Xorosoft Sync Methods
+  async syncWithXorosoft(config: unknown): Promise<{sync_id: string}> {
+    return this.request<{sync_id: string}>('/sync/xorosoft', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async getXorosoftSyncStatus(syncId: string): Promise<{status: string}> {
+    return this.request<{status: string}>(`/sync/xorosoft/${syncId}/status`);
+  }
+
+  // Enhanced Sync API Methods
+  async getSyncMetrics(): Promise<EnhancedSyncMetrics> {
+    return this.request<EnhancedSyncMetrics>('/sync/metrics');
+  }
+
+  async getRecentSyncActivity(): Promise<SyncHistoryItem[]> {
+    return this.request<SyncHistoryItem[]>('/sync/recent-activity');
+  }
+
+  // Shopify Sync Down Methods
+  async startShopifySyncDown(options: unknown): Promise<{sync_id: string}> {
+    return this.request<{sync_id: string}>('/shopify/sync-down/start', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+  }
+
+  async getShopifyCollections(): Promise<{collections: Array<{id: string, handle: string, title: string, products_count: number}>}> {
+    return this.request<{collections: Array<{id: string, handle: string, title: string, products_count: number}>}>('/shopify/collections');
+  }
+
+  async getProductTypes(): Promise<{types: string[]}> {
+    return this.request<{types: string[]}>('/shopify/product-types');
+  }
+
+  // Staged Changes Methods
+
+  async stageProductChanges(data: {productIds: string[], source: string}): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/staged-changes/stage', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async approveChanges(changeIds: string[]): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/staged-changes/approve', {
+      method: 'POST',
+      body: JSON.stringify({ change_ids: changeIds }),
+    });
+  }
+
+  async rejectChanges(changeIds: string[]): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/staged-changes/reject', {
+      method: 'POST',
+      body: JSON.stringify({ change_ids: changeIds }),
+    });
+  }
+
+  async resolveConflict(changeId: string, resolution: unknown): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>(`/staged-changes/${changeId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify(resolution),
+    });
+  }
+
+  // Shopify Sync Up Methods
+  async getApprovedProducts(): Promise<{products: SyncableProduct[]}> {
+    return this.request<{products: SyncableProduct[]}>('/shopify/approved-products');
+  }
+
+  async startShopifySyncUp(data: {productIds: string[], options: unknown}): Promise<{sync_id: string}> {
+    return this.request<{sync_id: string}>('/shopify/sync-up/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async retryFailedUploads(productIds: string[]): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/shopify/sync-up/retry', {
+      method: 'POST',
+      body: JSON.stringify({ product_ids: productIds }),
+    });
+  }
+
+  // Etilize Sync Methods
+  async checkEtilizeFTPConnection(): Promise<FTPConnectionStatus> {
+    return this.request<FTPConnectionStatus>('/etilize/ftp/check');
+  }
+
+  async scanEtilizeFTP(directory: string): Promise<EtilizeFTPScanResult> {
+    return this.request<EtilizeFTPScanResult>('/etilize/ftp/scan', {
+      method: 'POST',
+      body: JSON.stringify({ directory }),
+    });
+  }
+
+  async getEtilizeImportHistory(): Promise<EtilizeImportHistory> {
+    return this.request<EtilizeImportHistory>('/etilize/import/history');
+  }
+
+  async startEtilizeImport(data: {filename: string, validate: boolean, archive: boolean}): Promise<{job_id: string}> {
+    return this.request<{job_id: string}>('/etilize/import/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async saveEtilizeConfig(config: unknown): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/etilize/config', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  // Xorosoft Sync Methods
+  async checkXorosoftConnection(): Promise<XorosoftConnectionStatus> {
+    return this.request<XorosoftConnectionStatus>('/xorosoft/connection/check');
+  }
+
+  async getXorosoftInventoryComparison(): Promise<XorosoftInventoryComparison> {
+    return this.request<XorosoftInventoryComparison>('/xorosoft/inventory/comparison');
+  }
+
+  async getXorosoftSyncHistory(): Promise<XorosoftSyncHistory> {
+    return this.request<XorosoftSyncHistory>('/xorosoft/sync/history');
+  }
+
+  async startXorosoftSync(data: {mode: string, skus?: string[], updateStock: boolean, updatePrice: boolean}): Promise<{sync_id: string}> {
+    return this.request<{sync_id: string}>('/xorosoft/sync/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async saveXorosoftConfig(config: unknown): Promise<{success: boolean}> {
+    return this.request<{success: boolean}>('/xorosoft/config', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
 }
 
 export const apiClient = new ApiClient();
+// Re-export types for compatibility
 export type { 
   User,
+  AuthUser,
   LoginResponse,
   RegisterResponse,
   UserProfileResponse,
@@ -517,5 +620,6 @@ export type {
   SyncMode,
   SyncFlag,
   ImportBatch,
-  SyncableProduct
-};
+  SyncableProduct,
+  Collection
+} from '../types/api';
