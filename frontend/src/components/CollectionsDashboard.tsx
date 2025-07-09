@@ -10,9 +10,24 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { apiClient } from '@/lib/api';
+import { apiClient, Collection } from '@/lib/api';
 import { ShopifyCollectionManager } from './ShopifyCollectionManager';
 import { ProductTypeCollectionManager } from './ProductTypeCollectionManager';
+import { CollectionIconManager } from './CollectionIconManager';
+
+// Component interfaces for imported components
+interface ShopifyCollectionManagerProps {
+  onGenerateIcon?: (collection: any) => void;
+  onSyncIcon?: (collectionId: string, iconPath: string) => void;
+}
+
+interface ProductTypeCollectionManagerProps {
+  // Add props as needed
+}
+
+interface CollectionIconManagerProps {
+  // Add props as needed
+}
 import { 
   Layers,
   Plus,
@@ -36,22 +51,7 @@ import {
   Settings
 } from 'lucide-react';
 
-interface Collection {
-  id: number;
-  name: string;
-  handle: string;
-  description: string;
-  status: 'draft' | 'active' | 'archived';
-  rules_type: 'manual' | 'automatic';
-  rules_conditions?: any[];
-  disjunctive?: boolean;
-  products_count: number;
-  shopify_collection_id?: string;
-  shopify_synced_at?: string;
-  shopify_sync_status?: string;
-  created_at: string;
-  updated_at: string;
-}
+// Using Collection interface from API types
 
 interface CollectionStats {
   total_collections: number;
@@ -59,10 +59,12 @@ interface CollectionStats {
   draft_collections: number;
   synced_collections: number;
   total_products_in_collections: number;
+  custom_collections?: number;
+  smart_collections?: number;
 }
 
 export function CollectionsDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'manage' | 'shopify' | 'product-types'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'manage' | 'shopify' | 'product-types' | 'icons'>('overview');
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stats, setStats] = useState<CollectionStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,12 @@ export function CollectionsDashboard() {
       setLoading(true);
       setError(null);
       const response = await apiClient.getCollections();
-      setCollections(response.collections);
+      // Ensure status has a default value if undefined
+      const collectionsWithStatus = response.collections.map(collection => ({
+        ...collection,
+        status: collection.status || 'draft' as const
+      }));
+      setCollections(collectionsWithStatus);
     } catch (error: any) {
       console.error('Error loading collections:', error);
       setError(error.response?.data?.message || 'Failed to load collections');
@@ -98,13 +105,25 @@ export function CollectionsDashboard() {
 
   const loadStats = async () => {
     try {
+      const response = await fetch('http://localhost:3560/api/dashboard/collections/summary');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch collection stats:', error);
+    }
+  };
+
+  const loadStatsOld = async () => {
+    try {
       // Calculate stats from collections data
       const stats: CollectionStats = {
         total_collections: collections.length,
         active_collections: collections.filter(c => c.status === 'active').length,
         draft_collections: collections.filter(c => c.status === 'draft').length,
         synced_collections: collections.filter(c => c.shopify_collection_id).length,
-        total_products_in_collections: collections.reduce((sum, c) => sum + c.products_count, 0)
+        total_products_in_collections: collections.reduce((sum, c) => sum + (c.products_count || c.product_count || 0), 0)
       };
       setStats(stats);
     } catch (error) {
@@ -122,7 +141,11 @@ export function CollectionsDashboard() {
       const response = await apiClient.createCollection(newCollection);
       
       if (response.collection) {
-        setCollections(prev => [...prev, response.collection]);
+        const collectionWithStatus = {
+          ...response.collection,
+          status: response.collection.status || 'draft' as const
+        };
+        setCollections(prev => [...prev, collectionWithStatus]);
         setIsCreateDialogOpen(false);
         setNewCollection({
           name: '',
@@ -250,7 +273,7 @@ export function CollectionsDashboard() {
                         name="rules_type"
                         value="manual"
                         checked={newCollection.rules_type === 'manual'}
-                        onChange={(e) => setNewCollection(prev => ({ ...prev, rules_type: 'manual' }))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCollection(prev => ({ ...prev, rules_type: 'manual' }))}
                       />
                       <span>Manual</span>
                     </label>
@@ -260,7 +283,7 @@ export function CollectionsDashboard() {
                         name="rules_type"
                         value="automatic"
                         checked={newCollection.rules_type === 'automatic'}
-                        onChange={(e) => setNewCollection(prev => ({ ...prev, rules_type: 'automatic' }))}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCollection(prev => ({ ...prev, rules_type: 'automatic' }))}
                       />
                       <span>Automatic</span>
                     </label>
@@ -287,7 +310,7 @@ export function CollectionsDashboard() {
       )}
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">
             <BarChart className="h-4 w-4 mr-2" />
             Overview
@@ -295,6 +318,10 @@ export function CollectionsDashboard() {
           <TabsTrigger value="manage">
             <Grid className="h-4 w-4 mr-2" />
             Manage Collections
+          </TabsTrigger>
+          <TabsTrigger value="icons">
+            <Brain className="h-4 w-4 mr-2" />
+            Icon Manager
           </TabsTrigger>
           <TabsTrigger value="shopify">
             <Store className="h-4 w-4 mr-2" />
@@ -316,9 +343,11 @@ export function CollectionsDashboard() {
                 <Layers className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.total_collections || 0}</div>
+                <div className="text-2xl font-bold">
+                  {loading ? '...' : (stats?.total_collections || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Across all statuses
+                  {stats?.custom_collections || 0} custom, {stats?.smart_collections || 0} smart
                 </p>
               </CardContent>
             </Card>
@@ -329,7 +358,9 @@ export function CollectionsDashboard() {
                 <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.active_collections || 0}</div>
+                <div className="text-2xl font-bold">
+                  {loading ? '...' : (stats?.active_collections || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Available to customers
                 </p>
@@ -342,7 +373,9 @@ export function CollectionsDashboard() {
                 <Store className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.synced_collections || 0}</div>
+                <div className="text-2xl font-bold">
+                  {loading ? '...' : (stats?.synced_collections || 0)}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Live on your store
                 </p>
@@ -355,9 +388,11 @@ export function CollectionsDashboard() {
                 <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.total_products_in_collections || 0}</div>
+                <div className="text-2xl font-bold">
+                  {loading ? '...' : (stats?.total_products_in_collections || 0).toLocaleString()}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  In all collections
+                  In categorized collections
                 </p>
               </CardContent>
             </Card>
@@ -390,7 +425,7 @@ export function CollectionsDashboard() {
                       {getSyncStatusBadge(collection)}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {collection.products_count} products • {collection.rules_type} collection
+                      {collection.products_count || collection.product_count || 0} products • {collection.rules_type} collection
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -403,7 +438,7 @@ export function CollectionsDashboard() {
                     {collection.shopify_collection_id && (
                       <Button size="sm" variant="outline" asChild>
                         <a 
-                          href={`https://${process.env.REACT_APP_SHOPIFY_SHOP_URL}/admin/collections/${collection.shopify_collection_id}`} 
+                          href={`https://e19833-4.myshopify.com/admin/collections/${collection.shopify_collection_id}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                         >
@@ -434,7 +469,7 @@ export function CollectionsDashboard() {
             <div className="flex items-center gap-2">
               <select
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedStatus(e.target.value)}
                 className="px-3 py-2 border rounded-md"
               >
                 <option value="all">All Status</option>
@@ -488,11 +523,11 @@ export function CollectionsDashboard() {
                           </div>
                           <div>
                             <span className="text-muted-foreground">Products:</span>
-                            <span className="ml-1 font-medium">{collection.products_count}</span>
+                            <span className="ml-1 font-medium">{collection.products_count || collection.product_count || 0}</span>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Created:</span>
-                            <span className="ml-1">{new Date(collection.created_at).toLocaleDateString()}</span>
+                            <span className="ml-1">{collection.created_at ? new Date(collection.created_at).toLocaleDateString() : 'Unknown'}</span>
                           </div>
                           {collection.shopify_synced_at && (
                             <div>
@@ -540,6 +575,11 @@ export function CollectionsDashboard() {
               ))
             )}
           </div>
+        </TabsContent>
+
+        {/* Icon Manager Tab */}
+        <TabsContent value="icons">
+          <CollectionIconManager />
         </TabsContent>
 
         {/* Shopify Sync Tab */}

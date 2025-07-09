@@ -134,17 +134,19 @@ export function ProductsTable({
     });
   }, [products, searchTerm]);
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    const isChecked = checked === true;
+    if (isChecked) {
       setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
     } else {
       setSelectedProducts(new Set());
     }
   };
 
-  const handleSelectProduct = (productId: number, checked: boolean) => {
+  const handleSelectProduct = (productId: number, checked: boolean | 'indeterminate') => {
+    const isChecked = checked === true;
     const newSelection = new Set(selectedProducts);
-    if (checked) {
+    if (isChecked) {
       newSelection.add(productId);
     } else {
       newSelection.delete(productId);
@@ -495,7 +497,7 @@ export function ProductsTable({
                       <td className="p-3">
                         <Checkbox
                           checked={selectedProducts.has(product.id)}
-                          onCheckedChange={(checked) => handleSelectProduct(product.id, checked as boolean)}
+                          onCheckedChange={(checked) => handleSelectProduct(product.id, checked)}
                         />
                       </td>
                       <td className="p-3">
@@ -530,7 +532,7 @@ export function ProductsTable({
                           {getSyncStatusIcon(product)}
                           {product.shopify_product_id && (
                             <a
-                              href={`https://${process.env.REACT_APP_SHOPIFY_SHOP_URL}/admin/products/${product.shopify_product_id}`}
+                              href={`https://e19833-4.myshopify.com/admin/products/${product.shopify_product_id}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-muted-foreground hover:text-foreground"

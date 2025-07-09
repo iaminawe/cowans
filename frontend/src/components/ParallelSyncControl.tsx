@@ -146,7 +146,7 @@ export function ParallelSyncControl({
             <Switch
               id="enabled"
               checked={config.enabled}
-              onCheckedChange={(checked) => handleConfigChange('enabled', checked)}
+              onCheckedChange={(checked: boolean) => handleConfigChange('enabled', checked)}
               disabled={isRunning}
             />
           </div>
@@ -166,7 +166,7 @@ export function ParallelSyncControl({
                   max={10}
                   step={1}
                   value={[config.minWorkers]}
-                  onValueChange={([value]) => handleConfigChange('minWorkers', value)}
+                  onValueChange={(value: number[]) => handleConfigChange('minWorkers', value[0])}
                   disabled={isRunning || !config.enabled}
                   className="mt-2"
                 />
@@ -179,7 +179,7 @@ export function ParallelSyncControl({
                   max={10}
                   step={1}
                   value={[config.maxWorkers]}
-                  onValueChange={([value]) => handleConfigChange('maxWorkers', value)}
+                  onValueChange={(value: number[]) => handleConfigChange('maxWorkers', value[0])}
                   disabled={isRunning || !config.enabled}
                   className="mt-2"
                 />
@@ -215,7 +215,7 @@ export function ParallelSyncControl({
             <Label htmlFor="priority">Processing Priority</Label>
             <Select 
               value={config.priority} 
-              onValueChange={(value) => handleConfigChange('priority', value)}
+              onValueChange={(value: 'low' | 'normal' | 'high') => handleConfigChange('priority', value)}
               disabled={isRunning}
             >
               <SelectTrigger id="priority">
@@ -249,7 +249,7 @@ export function ParallelSyncControl({
             <Label htmlFor="operationType">Operation Type</Label>
             <Select 
               value={config.operationType} 
-              onValueChange={(value) => handleConfigChange('operationType', value)}
+              onValueChange={(value: 'create' | 'update' | 'delete' | 'all') => handleConfigChange('operationType', value)}
               disabled={isRunning}
             >
               <SelectTrigger id="operationType">
@@ -269,7 +269,7 @@ export function ParallelSyncControl({
             <Label htmlFor="strategy">Sync Strategy</Label>
             <Select 
               value={config.strategy} 
-              onValueChange={(value) => handleConfigChange('strategy', value)}
+              onValueChange={(value: 'speed' | 'cost' | 'balanced') => handleConfigChange('strategy', value)}
               disabled={isRunning}
             >
               <SelectTrigger id="strategy">
