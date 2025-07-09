@@ -42,6 +42,11 @@ class ApiClient {
   constructor(baseUrl: string = 'http://localhost:3560/api') {
     this.baseUrl = baseUrl;
     this.token = localStorage.getItem('auth_token');
+    
+    // Development fallback if no token
+    if (!this.token && process.env.NODE_ENV === 'development') {
+      this.token = 'dev-token';
+    }
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -51,6 +56,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include', // Include credentials for CORS
       ...options,
     };
 
@@ -61,14 +67,30 @@ class ApiClient {
       };
     }
 
-    const response = await fetch(url, config);
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Network error' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        // Special handling for auth errors
+        if (response.status === 401) {
+          // Clear invalid token
+          this.token = null;
+          localStorage.removeItem('auth_token');
+          throw new Error('Authentication required. Please log in again.');
+        }
+        
+        const error = await response.json().catch(() => ({ message: 'Network error' }));
+        throw new Error(error.message || `HTTP ${response.status}`);
+      }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      // Handle network errors more gracefully
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('Network error: Unable to connect to server. Please check if the backend is running.');
+      }
+      throw error;
+    }
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
@@ -470,21 +492,24 @@ class ApiClient {
     return this.request<{status: string}>(`/sync/xorosoft/${syncId}/status`);
   }
 
-  // Enhanced Sync API Methods
-  async getSyncMetrics(): Promise<EnhancedSyncMetrics> {
-    return this.request<EnhancedSyncMetrics>('/sync/metrics');
-  }
-
-  async getRecentSyncActivity(): Promise<SyncHistoryItem[]> {
-    return this.request<SyncHistoryItem[]>('/sync/recent-activity');
-  }
+  // Enhanced Sync API Methods - removed duplicates, using implementations with error handling at end of file
 
   // Shopify Sync Down Methods
-  async startShopifySyncDown(options: unknown): Promise<{sync_id: string}> {
-    return this.request<{sync_id: string}>('/shopify/sync-down/start', {
-      method: 'POST',
-      body: JSON.stringify(options),
-    });
+  async startShopifySyncDown(options: unknown): Promise<{sync_id: string; batch_id?: string}> {
+    try {
+      const response = await this.request<any>('/shopify/sync-down/start', {
+        method: 'POST',
+        body: JSON.stringify(options),
+      });
+      // Handle both sync_id and batch_id responses
+      return {
+        sync_id: response.batch_id || response.sync_id,
+        batch_id: response.batch_id
+      };
+    } catch (error) {
+      console.error('Failed to start Shopify sync down:', error);
+      throw error;
+    }
   }
 
   async getShopifyCollections(): Promise<{collections: Array<{id: string, handle: string, title: string, products_count: number}>}> {
@@ -599,6 +624,34 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(config),
     });
+  }
+
+  // Enhanced Sync Methods
+  async getSyncMetrics(): Promise<any> {
+    try {
+      return await this.request<any>('/sync/metrics');
+    } catch (error) {
+      console.warn('Failed to get sync metrics, using fallback:', error);
+      // Return fallback metrics when backend is not ready
+      return {
+        productsToSync: 0,
+        productsWithChanges: 0,
+        stagedChanges: 0,
+        approvedChanges: 0,
+        lastSyncTime: null,
+        nextScheduledSync: null
+      };
+    }
+  }
+
+  async getRecentSyncActivity(): Promise<any[]> {
+    try {
+      return await this.request<any[]>('/sync/recent-activity');
+    } catch (error) {
+      console.warn('Failed to get recent activity, using fallback:', error);
+      // Return empty activity when backend is not ready
+      return [];
+    }
   }
 }
 

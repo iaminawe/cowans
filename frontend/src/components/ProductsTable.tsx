@@ -299,19 +299,44 @@ export function ProductsTable({
   };
 
   const getSyncStatusIcon = (product: Product) => {
+    // Product not in Shopify yet - this is normal for new products
     if (!product.shopify_product_id) {
-      return <XCircle className="h-4 w-4 text-gray-400" />;
+      return (
+        <div className="flex items-center gap-1" title="Not synced to Shopify">
+          <XCircle className="h-4 w-4 text-gray-400" />
+        </div>
+      );
     }
     
+    // Product is in Shopify, check sync status
     switch (product.shopify_sync_status) {
       case 'synced':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'in_sync': // Handle both status variations
+        return (
+          <div className="flex items-center gap-1" title="Synced with Shopify">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          </div>
+        );
       case 'pending':
-        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+        return (
+          <div className="flex items-center gap-1" title="Sync pending">
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
+          </div>
+        );
       case 'failed':
-        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'out_of_sync': // Handle out of sync as a warning, not error
+        return (
+          <div className="flex items-center gap-1" title={product.shopify_sync_status === 'out_of_sync' ? 'Out of sync with Shopify' : 'Sync failed'}>
+            <XCircle className="h-4 w-4 text-red-500" />
+          </div>
+        );
       default:
-        return <AlertCircle className="h-4 w-4 text-gray-400" />;
+        // Product has Shopify ID but no explicit sync status - assume synced
+        return (
+          <div className="flex items-center gap-1" title="Synced with Shopify">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          </div>
+        );
     }
   };
 
