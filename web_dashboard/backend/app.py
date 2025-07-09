@@ -55,7 +55,7 @@ from repositories import (
     UserRepository, ProductRepository, CategoryRepository,
     IconRepository, JobRepository, SyncHistoryRepository
 )
-from models import Product, Category, ProductStatus, IconStatus, JobStatus
+from models import Product, Category, Collection, ProductStatus, IconStatus, JobStatus
 
 # Import API blueprints
 from import_api import import_bp
@@ -525,6 +525,97 @@ def generate_batch_icons():
         
     except Exception as e:
         app.logger.error(f"Error starting batch generation: {e}")
+        return jsonify({"message": "Internal server error", "error": str(e)}), 500
+
+@app.route("/api/icons/generate/bulk", methods=["POST"])
+@supabase_jwt_required
+def generate_bulk_icons():
+    """Generate icons for multiple collections in bulk."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "Request data required"}), 400
+        
+        collection_ids = data.get('collection_ids', [])
+        if not collection_ids:
+            return jsonify({"message": "At least one collection_id is required"}), 400
+        
+        # Get collection names from IDs
+        with db_session_scope() as session:
+            collections = session.query(Collection).filter(
+                Collection.id.in_(collection_ids)
+            ).all()
+            
+            if not collections:
+                return jsonify({"message": "No valid collections found"}), 404
+            
+            categories = [col.name for col in collections]
+        
+        # Validate request
+        async def validate_and_start():
+            async with IconGenerationService() as service:
+                validation = service.validate_generation_request(
+                    categories=categories,
+                    style=data.get('style'),
+                    color_scheme=data.get('color_scheme')
+                )
+                
+                if not validation['valid']:
+                    return {"valid": False, "errors": validation['errors']}
+                
+                # Parse parameters
+                style = IconStyle.MODERN
+                color_scheme = IconColor.BRAND_COLORS
+                
+                if data.get('style'):
+                    try:
+                        style = IconStyle(data['style'].lower())
+                    except ValueError:
+                        pass
+                
+                if data.get('color_scheme'):
+                    try:
+                        color_scheme = IconColor(data['color_scheme'].lower())
+                    except ValueError:
+                        pass
+                
+                # Create batch request
+                batch_request = BatchGenerationRequest(
+                    categories=validation['validated_categories'],
+                    style=style,
+                    color_scheme=color_scheme,
+                    variations_per_category=1,
+                    user_id=get_current_user_id(),
+                    metadata={'source': 'bulk_collections', 'collection_ids': collection_ids}
+                )
+                
+                # Start batch generation with WebSocket progress
+                async def progress_callback(batch_id, progress, current_category, completed, total):
+                    socketio.emit('bulk_generation_progress', {
+                        'batch_id': batch_id,
+                        'progress': progress,
+                        'current_category': current_category,
+                        'completed': completed,
+                        'total': total,
+                        'status': 'running' if completed < total else 'completed'
+                    }, room=batch_id)
+                
+                batch_id = await service.generate_batch_icons(batch_request, progress_callback)
+                return {"valid": True, "batch_id": batch_id}
+        
+        result = run_async(validate_and_start())
+        
+        if not result['valid']:
+            return jsonify({"message": "Validation failed", "errors": result['errors']}), 400
+        
+        return jsonify({
+            "message": "Bulk generation started",
+            "job_id": result['batch_id'],
+            "collections_count": len(collection_ids)
+        }), 201
+        
+    except Exception as e:
+        app.logger.error(f"Error starting bulk generation: {e}")
         return jsonify({"message": "Internal server error", "error": str(e)}), 500
 
 @app.route("/api/icons/batch/<batch_id>/status", methods=["GET"])
