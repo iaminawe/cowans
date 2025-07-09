@@ -379,6 +379,93 @@ export function UserManagement() {
               Add User
             </Button>
           </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Create New User</DialogTitle>
+              <DialogDescription>
+                Add a new user to the system with appropriate permissions.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="col-span-3"
+                  placeholder="user@company.com"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="password" className="text-right">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                  className="col-span-3"
+                  placeholder="Secure password"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="first_name" className="text-right">
+                  First Name
+                </Label>
+                <Input
+                  id="first_name"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                  className="col-span-3"
+                  placeholder="John"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="last_name" className="text-right">
+                  Last Name
+                </Label>
+                <Input
+                  id="last_name"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                  className="col-span-3"
+                  placeholder="Doe"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Permissions</Label>
+                <div className="col-span-3 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_active"
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked as boolean }))}
+                    />
+                    <Label htmlFor="is_active">Active user</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_admin"
+                      checked={formData.is_admin}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_admin: checked as boolean }))}
+                    />
+                    <Label htmlFor="is_admin">Administrator privileges</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setCreateModalOpen(false); resetForm(); }}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateUser}>Create User</Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
       </div>
 
@@ -673,95 +760,6 @@ export function UserManagement() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Create User Modal */}
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
-          <DialogDescription>
-            Add a new user to the system with appropriate permissions.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="email" className="text-right">
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              className="col-span-3"
-              placeholder="user@company.com"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="password" className="text-right">
-              Password
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-              className="col-span-3"
-              placeholder="Secure password"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="first_name" className="text-right">
-              First Name
-            </Label>
-            <Input
-              id="first_name"
-              value={formData.first_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
-              className="col-span-3"
-              placeholder="John"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="last_name" className="text-right">
-              Last Name
-            </Label>
-            <Input
-              id="last_name"
-              value={formData.last_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
-              className="col-span-3"
-              placeholder="Doe"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Permissions</Label>
-            <div className="col-span-3 space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked as boolean }))}
-                />
-                <Label htmlFor="is_active">Active user</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_admin"
-                  checked={formData.is_admin}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_admin: checked as boolean }))}
-                />
-                <Label htmlFor="is_admin">Administrator privileges</Label>
-              </div>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { setCreateModalOpen(false); resetForm(); }}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreateUser}>Create User</Button>
-        </DialogFooter>
-      </DialogContent>
 
       {/* Edit User Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
