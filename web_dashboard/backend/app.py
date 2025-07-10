@@ -11,6 +11,7 @@ from services.supabase_auth import (
     auth_service, supabase_jwt_required, supabase_jwt_optional,
     get_current_user_id, get_current_user_email, require_role
 )
+from services.supabase_database import get_supabase_db
 from functools import wraps
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import timedelta
@@ -303,15 +304,27 @@ def health_check():
     
     overall_healthy = True
     
-    # Check database connection
+    # Check Supabase database connection
     try:
-        with db_session_scope() as session:
-            from sqlalchemy import text
-            session.execute(text("SELECT 1"))
-        health_status["services"]["database"] = "healthy"
+        supabase_db = get_supabase_db()
+        db_health = supabase_db.health_check()
+        health_status["services"]["supabase"] = db_health["status"]
+        if db_health["status"] != "healthy":
+            overall_healthy = False
     except Exception as e:
-        health_status["services"]["database"] = f"unhealthy: {str(e)}"
+        health_status["services"]["supabase"] = f"unhealthy: {str(e)}"
         overall_healthy = False
+    
+    # Fallback: Check legacy database connection if Supabase fails
+    if not overall_healthy:
+        try:
+            with db_session_scope() as session:
+                from sqlalchemy import text
+                session.execute(text("SELECT 1"))
+            health_status["services"]["database_fallback"] = "healthy"
+            overall_healthy = True  # At least fallback works
+        except Exception as e:
+            health_status["services"]["database_fallback"] = f"unhealthy: {str(e)}"
     
     # Check Redis connection if available
     try:
@@ -339,6 +352,33 @@ def liveness_check():
         "status": "alive",
         "timestamp": time.time()
     }), 200
+
+# Supabase test endpoint
+@app.route("/health/supabase", methods=["GET"])
+def supabase_test():
+    """Test Supabase SDK functionality."""
+    try:
+        supabase_db = get_supabase_db()
+        
+        # Test basic queries
+        users = supabase_db.client.table('users').select('id,email').limit(3).execute()
+        products = supabase_db.client.table('products').select('id,name').limit(3).execute()
+        
+        return jsonify({
+            "status": "success",
+            "supabase_url": supabase_db.supabase_url,
+            "tables_tested": {
+                "users": len(users.data) if users.data else 0,
+                "products": len(products.data) if products.data else 0
+            },
+            "timestamp": time.time()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }), 500
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
