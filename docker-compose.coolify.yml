@@ -1,9 +1,36 @@
 version: '3.8'
 
-# Coolify v4 optimized configuration
+# Coolify v4 optimized configuration  
 # This compose file is specifically designed for Coolify deployment
+# IMPORTANT: Frontend service MUST be first to get the domain assignment
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=/api
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+      - "coolify.type=application"
+      - "coolify.name=frontend"
+      - "coolify.port=80"
+      - "coolify.domain=${COOLIFY_URL:-cowans.apps.iaminawe.net}"
+      - "coolify.https=true"
+
   backend:
     build:
       context: .
@@ -38,34 +65,6 @@ services:
     labels:
       - "coolify.managed=true"
       - "coolify.type=application"
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - REACT_APP_API_URL=/api
-    environment:
-      - NODE_ENV=production
-      - REACT_APP_API_URL=/api
-    expose:
-      - "80"
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    restart: unless-stopped
-    labels:
-      - "coolify.managed=true"
-      - "coolify.type=application"
-      - "coolify.name=frontend"
-      - "coolify.port=80"
-      - "coolify.domain=${COOLIFY_URL:-cowans.apps.iaminawe.net}"
-      - "coolify.https=true"
 
   redis:
     image: redis:7-alpine
