@@ -275,7 +275,7 @@ try:
         from database import DatabaseUtils
         DatabaseUtils.seed_initial_data()
         
-    app.logger.info("Database initialized successfully")
+    # Database initialization logging is handled by DatabaseManager
 except Exception as e:
     app.logger.error(f"Failed to initialize database: {e}")
     # Continue anyway for development

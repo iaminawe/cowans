@@ -113,7 +113,10 @@ class DatabaseManager:
                 logger.warning("Creating tables - this should only be done in development!")
                 self.create_tables()
                 
-            logger.info(f"Database initialized successfully: {self.database_url}")
+            # Only log database URL once per process (avoid spam in multi-worker setups)
+            if not hasattr(self, '_logged_init'):
+                logger.info(f"Database initialized successfully: {self.database_url}")
+                self._logged_init = True
             
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
