@@ -17,11 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/icons /app/logs /app/backups
+# Create a non-root user first
+RUN useradd -m -u 1000 appuser
 
-# Create a non-root user
-RUN useradd -m -u 1000 appuser && \
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/data /app/data/generated_icons /app/icons /app/logs /app/backups && \
     chown -R appuser:appuser /app
 
 # Switch to non-root user
@@ -29,6 +29,8 @@ USER appuser
 
 # Initialize database on container start
 RUN echo '#!/bin/sh\n\
+# Ensure all required directories exist with proper permissions\n\
+mkdir -p /app/data/generated_icons /app/logs /app/icons\n\
 if [ ! -f /app/data/database.db ]; then\n\
     echo "Initializing database..."\n\
     cd /app && python init_db.py --force --skip-prompt\n\

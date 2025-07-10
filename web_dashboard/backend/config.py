@@ -24,16 +24,25 @@ class Config:
     CELERY_ENABLE_UTC = True
     
     # Script execution configuration
-    SCRIPTS_BASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts")
-    DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
-    LOG_PATH = os.path.join(os.path.dirname(__file__), "logs")
+    SCRIPTS_BASE_PATH = os.path.join('/app', 'scripts')
+    DATA_PATH = os.path.join('/app', 'data')
+    LOG_PATH = os.path.join('/app', 'logs')
     
     # Ensure log directory exists
-    os.makedirs(LOG_PATH, exist_ok=True)
+    try:
+        os.makedirs(LOG_PATH, exist_ok=True)
+    except PermissionError:
+        # Directory will be created by Docker with proper permissions
+        pass
     
-    # Ensure images directory exists
-    IMAGES_STORAGE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "generated_icons")
-    os.makedirs(IMAGES_STORAGE_PATH, exist_ok=True)
+    # Images storage path - ensure it's in app directory
+    IMAGES_STORAGE_PATH = os.path.join('/app', 'data', 'generated_icons')
+    # Only create directory if we have permissions (defer to Dockerfile setup)
+    try:
+        os.makedirs(IMAGES_STORAGE_PATH, exist_ok=True)
+    except PermissionError:
+        # Directory will be created by Docker with proper permissions
+        pass
     
     # FTP Configuration
     FTP_HOST = os.getenv('FTP_HOST')
