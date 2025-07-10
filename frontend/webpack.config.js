@@ -14,38 +14,32 @@ module.exports = (env, argv) => {
       publicPath: '/',
       clean: true,
     },
-  resolve: {
-    extensions: ['.tsx', '.ts', '.js'],
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
+    resolve: {
+      extensions: ['.tsx', '.ts', '.js'],
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
+      },
+      modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
     },
-    modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
-    symlinks: false,
-  },
-  module: {
-    rules: [
-      {
-        test: /\.(ts|tsx)$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'ts-loader',
-          options: {
-            configFile: path.resolve(__dirname, 'tsconfig.json'),
-            compilerOptions: {
-              baseUrl: '.',
-              paths: {
-                '@/*': ['src/*']
-              }
-            }
-          }
+    module: {
+      rules: [
+        {
+          test: /\.(ts|tsx)$/,
+          exclude: /node_modules/,
+          use: {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: false,
+              configFile: path.resolve(__dirname, 'tsconfig.json'),
+            },
+          },
         },
-      },
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader', 'postcss-loader'],
-      },
-    ],
-  },
+        {
+          test: /\.css$/,
+          use: ['style-loader', 'css-loader', 'postcss-loader'],
+        },
+      ],
+    },
   plugins: [
     new HtmlWebpackPlugin({
       template: path.resolve(__dirname, 'public/index.html'),
