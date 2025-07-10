@@ -13,8 +13,8 @@ services:
     environment:
       - NODE_ENV=production
       - REACT_APP_API_URL=/api
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
