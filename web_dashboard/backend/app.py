@@ -927,6 +927,58 @@ def serve_generated_image(filename):
         app.logger.error(f"Error serving image: {e}")
         return jsonify({"message": "Image not found"}), 404
 
+# Fallback route to serve React app (when frontend service fails)
+@app.route("/", defaults={"path": ""}, methods=["GET"])
+@app.route("/<path:path>", methods=["GET"])
+def serve_frontend_fallback(path):
+    """Serve React frontend as fallback when frontend service is unavailable."""
+    # Only serve non-API routes
+    if path.startswith('api/'):
+        return jsonify({"error": "API endpoint not found"}), 404
+    
+    try:
+        # Look for built frontend files in common locations
+        frontend_paths = [
+            Path(__file__).parent.parent.parent / "frontend" / "build",
+            Path(__file__).parent.parent.parent / "frontend" / "dist", 
+            Path("/app/frontend/build"),  # Docker path
+            Path("/app/frontend/dist")    # Docker path
+        ]
+        
+        for frontend_path in frontend_paths:
+            if frontend_path.exists():
+                # Serve specific file if it exists
+                if path and (frontend_path / path).exists():
+                    return send_from_directory(frontend_path, path)
+                # Always serve index.html for React routing
+                index_file = frontend_path / "index.html"
+                if index_file.exists():
+                    return send_from_directory(frontend_path, "index.html")
+        
+        # If no frontend build found, return a basic HTML page
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Cowan's Office Supplies</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body>
+            <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+                <h1>Cowan's Office Supplies</h1>
+                <p>Frontend service is starting up...</p>
+                <p>Backend API is running successfully.</p>
+                <p><a href="/health">Check Backend Health</a></p>
+            </div>
+        </body>
+        </html>
+        """, 200, {'Content-Type': 'text/html'}
+        
+    except Exception as e:
+        app.logger.error(f"Error serving frontend fallback: {e}")
+        return jsonify({"error": "Frontend service unavailable"}), 503
+
 @app.before_request
 def handle_preflight():
     """Handle CORS preflight requests."""
