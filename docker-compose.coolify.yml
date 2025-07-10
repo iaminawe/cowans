@@ -44,7 +44,7 @@ services:
     environment:
       - NODE_ENV=production
       - REACT_APP_API_URL=/api
-    expose:
+    ports:
       - "80"
     depends_on:
       - backend
@@ -58,22 +58,7 @@ services:
     labels:
       - "coolify.managed=true"
       - "coolify.type=application"
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "${PORT:-8888}:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - shared-icons:/usr/share/nginx/html/icons:ro
-    depends_on:
-      - frontend
-      - backend
-    restart: unless-stopped
-    labels:
-      - "coolify.managed=true"
-      - "coolify.type=proxy"
-      - "coolify.domains=${COOLIFY_URL}"
+      - "coolify.name=frontend"
 
   redis:
     image: redis:7-alpine
