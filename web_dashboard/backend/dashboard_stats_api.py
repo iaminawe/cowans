@@ -6,78 +6,59 @@ Dashboard Statistics API - Provides live data for all dashboard components
 from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 from datetime import datetime, timedelta
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import os
 import requests
 from dotenv import load_dotenv
+from database import db_session_scope
+from models import Product, Category, Job, SyncHistory
+from sqlalchemy import func, and_
 load_dotenv()
 
 dashboard_stats_bp = Blueprint('dashboard_stats', __name__)
 CORS(dashboard_stats_bp)
 
-# Database connection
-def get_db_connection():
-    db_url = os.getenv('DATABASE_URL')
-    if db_url.startswith('postgresql+psycopg://'):
-        db_url = db_url.replace('postgresql+psycopg://', 'postgresql://')
-    return psycopg2.connect(db_url, cursor_factory=RealDictCursor)
+# Database session - now using SQLAlchemy with existing setup
 
 @dashboard_stats_bp.route('/api/dashboard/products/stats', methods=['GET'])
 def get_product_stats():
     """Get product statistics for ProductsDashboard"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Total products
-        cursor.execute("SELECT COUNT(*) as count FROM products")
-        total_products = cursor.fetchone()['count']
-        
-        # Shopify synced products
-        cursor.execute("""
-            SELECT COUNT(*) as count 
-            FROM products 
-            WHERE shopify_product_id IS NOT NULL
-        """)
-        shopify_synced = cursor.fetchone()['count']
-        
-        # Calculate sync percentage
-        sync_percentage = round((shopify_synced / total_products * 100) if total_products > 0 else 0)
-        
-        # Revenue calculation (sum of price * inventory_quantity)
-        cursor.execute("""
-            SELECT SUM(price * COALESCE(inventory_quantity, 0)) as revenue
-            FROM products
-            WHERE price > 0
-        """)
-        revenue_result = cursor.fetchone()['revenue']
-        total_revenue = float(revenue_result) if revenue_result else 0.0
-        
-        # Revenue trend (compare with last month)
-        thirty_days_ago = datetime.now() - timedelta(days=30)
-        cursor.execute("""
-            SELECT SUM(price * COALESCE(inventory_quantity, 0)) as revenue
-            FROM products
-            WHERE price > 0 AND updated_at < %s
-        """, (thirty_days_ago,))
-        last_month_revenue = cursor.fetchone()['revenue'] or 0
-        
-        revenue_change = 0
-        if last_month_revenue > 0:
-            revenue_change = round(((total_revenue - float(last_month_revenue)) / float(last_month_revenue)) * 100, 1)
-        
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'totalProducts': total_products,
-            'shopifySynced': shopify_synced,
-            'syncPercentage': sync_percentage,
-            'totalRevenue': round(total_revenue, 2),
-            'revenueChange': revenue_change,
-            'revenueChangeType': 'increase' if revenue_change > 0 else 'decrease'
-        })
+        with db_session_scope() as session:
+            # Total products
+            total_products = session.query(Product).count()
+            
+            # Shopify synced products
+            shopify_synced = session.query(Product).filter(Product.shopify_product_id.isnot(None)).count()
+            
+            # Calculate sync percentage
+            sync_percentage = round((shopify_synced / total_products * 100) if total_products > 0 else 0)
+            
+            # Revenue calculation (sum of price * inventory_quantity)
+            revenue_result = session.query(
+                func.sum(Product.price * func.coalesce(Product.inventory_quantity, 0))
+            ).filter(Product.price > 0).scalar()
+            total_revenue = float(revenue_result) if revenue_result else 0.0
+            
+            # Revenue trend (compare with last month)
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            last_month_revenue = session.query(
+                func.sum(Product.price * func.coalesce(Product.inventory_quantity, 0))
+            ).filter(
+                and_(Product.price > 0, Product.updated_at < thirty_days_ago)
+            ).scalar()
+            
+            revenue_change = 0
+            if last_month_revenue and last_month_revenue > 0:
+                revenue_change = round(((total_revenue - float(last_month_revenue)) / float(last_month_revenue)) * 100, 1)
+            
+            return jsonify({
+                'totalProducts': total_products,
+                'shopifySynced': shopify_synced,
+                'syncPercentage': sync_percentage,
+                'totalRevenue': round(total_revenue, 2),
+                'revenueChange': revenue_change,
+                'revenueChangeType': 'increase' if revenue_change > 0 else 'decrease'
+            })
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
