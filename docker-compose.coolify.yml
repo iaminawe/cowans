@@ -44,7 +44,7 @@ services:
     environment:
       - NODE_ENV=production
       - REACT_APP_API_URL=/api
-    ports:
+    expose:
       - "80"
     depends_on:
       - backend
@@ -59,6 +59,9 @@ services:
       - "coolify.managed=true"
       - "coolify.type=application"
       - "coolify.name=frontend"
+      - "coolify.port=80"
+      - "coolify.domain=${COOLIFY_URL:-cowans.apps.iaminawe.net}"
+      - "coolify.https=true"
 
   redis:
     image: redis:7-alpine
