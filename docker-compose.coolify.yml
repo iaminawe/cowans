@@ -6,8 +6,8 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./web_dashboard/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./web_dashboard/backend/Dockerfile
     environment:
       - FLASK_ENV=production
       - DATABASE_URL=sqlite:////app/data/database.db
@@ -78,8 +78,8 @@ services:
 
   celery:
     build:
-      context: ./web_dashboard/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./web_dashboard/backend/Dockerfile
     command: celery -A celery_app worker --loglevel=info
     environment:
       - DATABASE_URL=sqlite:////app/data/database.db

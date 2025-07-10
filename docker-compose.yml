@@ -3,8 +3,8 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./web_dashboard/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./web_dashboard/backend/Dockerfile
     container_name: cowans-backend
     environment:
       - FLASK_ENV=production
@@ -59,8 +59,8 @@ services:
 
   celery:
     build:
-      context: ./web_dashboard/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./web_dashboard/backend/Dockerfile
     container_name: cowans-celery
     command: celery -A celery_app worker --loglevel=info
     environment:
