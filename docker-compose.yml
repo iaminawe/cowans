@@ -38,11 +38,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:3560}
+        - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8888/api}
     container_name: cowans-frontend
     environment:
       - NODE_ENV=production
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:3560}
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8888/api}
     ports:
       - "3055:80"
     depends_on:
@@ -101,8 +101,8 @@ services:
     image: nginx:alpine
     container_name: cowans-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8888:80"
+      - "8443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - shared-icons:/usr/share/nginx/html/icons:ro
