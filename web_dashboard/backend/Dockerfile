@@ -3,7 +3,7 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including gunicorn
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY ./web_dashboard/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install gunicorn for production
+RUN pip install --no-cache-dir gunicorn[gevent]
 
 # Copy application code
 COPY ./web_dashboard/backend .
@@ -30,15 +33,30 @@ RUN mkdir -p /app/data /app/data/generated_icons /app/icons /app/logs /app/backu
 # Switch to non-root user
 USER appuser
 
-# Initialize database on container start
+# Create production entrypoint
 RUN echo '#!/bin/sh\n\
 # Ensure all required directories exist with proper permissions\n\
 mkdir -p /app/data/generated_icons /app/logs /app/icons\n\
-if [ ! -f /app/data/database.db ]; then\n\
-    echo "Initializing database..."\n\
-    cd /app && python init_db.py --force --skip-prompt\n\
-fi\n\
-exec python app.py' > /app/entrypoint.sh && \
+\n\
+# Check if we are in production mode\n\
+if [ "$FLASK_ENV" = "production" ]; then\n\
+    echo "Starting in production mode with Gunicorn..."\n\
+    exec gunicorn --bind 0.0.0.0:3560 \\\n\
+        --workers 4 \\\n\
+        --worker-class gevent \\\n\
+        --worker-connections 1000 \\\n\
+        --timeout 120 \\\n\
+        --keepalive 5 \\\n\
+        --max-requests 1000 \\\n\
+        --max-requests-jitter 100 \\\n\
+        --access-logfile - \\\n\
+        --error-logfile - \\\n\
+        --capture-output \\\n\
+        "app:app"\n\
+else\n\
+    echo "Starting in development mode..."\n\
+    exec python app.py\n\
+fi' > /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
 
 # Expose port

@@ -11,12 +11,12 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     JWT_ALGORITHM = "HS256"
     
-    # Redis configuration
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    # Redis configuration - use service name in docker-compose
+    REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
     
     # Celery configuration
-    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
-    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
+    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
     CELERY_TASK_SERIALIZER = 'json'
     CELERY_RESULT_SERIALIZER = 'json'
     CELERY_ACCEPT_CONTENT = ['json']
