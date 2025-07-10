@@ -46,13 +46,13 @@ if [ "$FLASK_ENV" = "production" ]; then\n\
         --worker-class gevent \\\n\
         --worker-connections 1000 \\\n\
         --timeout 120 \\\n\
-        --keepalive 5 \\\n\
+        --keep-alive 5 \\\n\
         --max-requests 1000 \\\n\
         --max-requests-jitter 100 \\\n\
         --access-logfile - \\\n\
         --error-logfile - \\\n\
         --capture-output \\\n\
-        "app:app"\n\
+        app:app\n\
 else\n\
     echo "Starting in development mode..."\n\
     exec python app.py\n\
