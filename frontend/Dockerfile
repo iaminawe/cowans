@@ -13,7 +13,14 @@ RUN npm ci
 COPY . .
 
 # Debug: List files to ensure they're copied correctly
-RUN ls -la && ls -la src/ && ls -la public/
+RUN ls -la
+RUN ls -la src/
+RUN if [ -d "public" ]; then ls -la public/; else echo "public directory not found, creating it"; mkdir -p public; fi
+
+# Create index.html if it doesn't exist
+RUN if [ ! -f "public/index.html" ]; then \
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>React App</title></head><body><div id="root"></div></body></html>' > public/index.html; \
+    fi
 
 # Build the application
 ARG REACT_APP_API_URL
