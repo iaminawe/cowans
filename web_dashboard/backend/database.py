@@ -59,12 +59,13 @@ class DatabaseManager:
         db_path = os.path.join(os.path.dirname(__file__), 'database.db')
         return f"sqlite:///{db_path}"
     
-    def initialize(self, create_tables: bool = True) -> None:
-        """Initialize database connection and create tables if needed."""
+    def initialize(self, create_tables: bool = False) -> None:
+        """Initialize database connection. Tables should already exist in Supabase."""
         try:
             # Create engine with appropriate settings
             if self.database_url.startswith('sqlite'):
-                # SQLite-specific settings
+                # SQLite-specific settings (deprecated, should use Supabase)
+                logger.warning("SQLite is deprecated. Please use Supabase PostgreSQL.")
                 self.engine = create_engine(
                     self.database_url,
                     echo=False,  # Set to True for SQL debugging
@@ -86,7 +87,7 @@ class DatabaseManager:
                     cursor.close()
                     
             else:
-                # PostgreSQL/MySQL settings
+                # PostgreSQL/Supabase settings
                 self.engine = create_engine(
                     self.database_url,
                     echo=False,
@@ -107,8 +108,9 @@ class DatabaseManager:
             # Create scoped session for thread-safe access
             self._scoped_session = scoped_session(self.session_factory)
             
-            # Create tables if requested
+            # Only create tables if explicitly requested (for development)
             if create_tables:
+                logger.warning("Creating tables - this should only be done in development!")
                 self.create_tables()
                 
             logger.info(f"Database initialized successfully: {self.database_url}")
@@ -348,16 +350,27 @@ class DatabaseUtils:
     
     @staticmethod
     def seed_initial_data() -> None:
-        """Seed database with initial data."""
+        """Seed database with initial data. WARNING: Only use in development!"""
         from models import Configuration, User
         from werkzeug.security import generate_password_hash
         
+        # Check if we're in production and skip seeding
+        if os.getenv('FLASK_ENV') == 'production':
+            logger.info("Skipping data seeding in production environment")
+            return
+            
         try:
             # Ensure database is initialized
             if not db_manager.engine:
                 db_manager.initialize()
                 
             with db_session_scope() as session:
+                # Only seed if no users exist (fresh database)
+                user_count = session.query(User).count()
+                if user_count > 0:
+                    logger.info("Users already exist - skipping seeding")
+                    return
+                    
                 # Create default dev user with ID 1 if it doesn't exist
                 dev_user = session.query(User).filter_by(id=1).first()
                 if not dev_user:

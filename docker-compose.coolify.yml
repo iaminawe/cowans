@@ -10,7 +10,10 @@ services:
       dockerfile: ./web_dashboard/backend/Dockerfile
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=sqlite:////app/data/database.db
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - SHOPIFY_SHOP_URL=${SHOPIFY_SHOP_URL}
       - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
@@ -97,7 +100,10 @@ services:
       dockerfile: ./web_dashboard/backend/Dockerfile
     command: celery -A celery_app worker --loglevel=info
     environment:
-      - DATABASE_URL=sqlite:////app/data/database.db
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SHOPIFY_SHOP_URL=${SHOPIFY_SHOP_URL}

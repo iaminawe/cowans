@@ -684,8 +684,8 @@ class ProductCollection(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False)
     
     # Relationships
-    product = relationship("Product")
-    collection = relationship("Collection")
+    product = relationship("Product", overlaps="collections,products")
+    collection = relationship("Collection", overlaps="collections,products")
     
     # Indexes and constraints
     __table_args__ = (

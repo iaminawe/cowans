@@ -264,12 +264,17 @@ def setup_logging():
 
 setup_logging()
 
-# Initialize database on startup
+# Initialize database on startup (no table creation in production)
 try:
-    init_database(create_tables=True)
-    # Seed initial data including default dev user
-    from database import DatabaseUtils
-    DatabaseUtils.seed_initial_data()
+    # In production with Supabase, tables should already exist
+    create_tables = os.getenv('FLASK_ENV') != 'production'
+    init_database(create_tables=create_tables)
+    
+    # Only seed data in development environments
+    if os.getenv('FLASK_ENV') != 'production':
+        from database import DatabaseUtils
+        DatabaseUtils.seed_initial_data()
+        
     app.logger.info("Database initialized successfully")
 except Exception as e:
     app.logger.error(f"Failed to initialize database: {e}")
