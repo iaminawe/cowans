@@ -12,18 +12,26 @@ RUN npm ci
 # Copy all source files (the build context should be the frontend directory)
 COPY . .
 
+# Ensure src/lib directory exists and has utils.ts
+RUN mkdir -p src/lib
+
+# Create utils.ts if it doesn't exist (fallback)
+RUN if [ ! -f "src/lib/utils.ts" ]; then \
+    echo 'import { type ClassValue, clsx } from "clsx"; \
+import { twMerge } from "tailwind-merge"; \
+\
+export function cn(...inputs: ClassValue[]) { \
+  return twMerge(clsx(inputs)); \
+}' > src/lib/utils.ts; \
+    echo "WARNING: Created src/lib/utils.ts as it was missing"; \
+    fi
+
 # Debug: List files to ensure they're copied correctly
 RUN ls -la
 RUN ls -la src/ || echo "src directory not found"
 RUN ls -la src/lib/ || echo "src/lib directory not found"
+RUN cat src/lib/utils.ts || echo "utils.ts content not readable"
 RUN if [ -d "public" ]; then ls -la public/; else echo "public directory not found, creating it"; mkdir -p public; fi
-
-# Ensure lib/utils.ts exists
-RUN if [ ! -f "src/lib/utils.ts" ]; then \
-    echo "ERROR: src/lib/utils.ts not found!" && \
-    echo "Contents of src/:" && \
-    find src -type f -name "*.ts" -o -name "*.tsx" | head -20; \
-    fi
 
 # Create index.html if it doesn't exist
 RUN if [ ! -f "public/index.html" ]; then \
