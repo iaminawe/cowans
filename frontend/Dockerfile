@@ -14,9 +14,16 @@ COPY . .
 
 # Debug: List files to ensure they're copied correctly
 RUN ls -la
-RUN ls -la src/
-RUN ls -la src/lib/
+RUN ls -la src/ || echo "src directory not found"
+RUN ls -la src/lib/ || echo "src/lib directory not found"
 RUN if [ -d "public" ]; then ls -la public/; else echo "public directory not found, creating it"; mkdir -p public; fi
+
+# Ensure lib/utils.ts exists
+RUN if [ ! -f "src/lib/utils.ts" ]; then \
+    echo "ERROR: src/lib/utils.ts not found!" && \
+    echo "Contents of src/:" && \
+    find src -type f -name "*.ts" -o -name "*.tsx" | head -20; \
+    fi
 
 # Create index.html if it doesn't exist
 RUN if [ ! -f "public/index.html" ]; then \

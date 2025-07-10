@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -18,8 +19,18 @@ module.exports = (env, argv) => {
       extensions: ['.tsx', '.ts', '.js'],
       alias: {
         '@': path.resolve(__dirname, 'src'),
+        '@/lib/utils': path.resolve(__dirname, 'src/lib/utils'),
       },
+      plugins: [
+        new TsconfigPathsPlugin({
+          configFile: path.resolve(__dirname, 'tsconfig.json'),
+        }),
+      ],
       modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
+      fallback: {
+        path: false,
+        fs: false,
+      },
     },
     module: {
       rules: [
