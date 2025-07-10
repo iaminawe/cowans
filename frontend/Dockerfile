@@ -15,6 +15,7 @@ COPY . .
 # Debug: List files to ensure they're copied correctly
 RUN ls -la
 RUN ls -la src/
+RUN ls -la src/lib/
 RUN if [ -d "public" ]; then ls -la public/; else echo "public directory not found, creating it"; mkdir -p public; fi
 
 # Create index.html if it doesn't exist

@@ -20,13 +20,25 @@ module.exports = (env, argv) => {
       '@': path.resolve(__dirname, 'src'),
     },
     modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
+    symlinks: false,
   },
   module: {
     rules: [
       {
         test: /\.(ts|tsx)$/,
         exclude: /node_modules/,
-        use: 'ts-loader',
+        use: {
+          loader: 'ts-loader',
+          options: {
+            configFile: path.resolve(__dirname, 'tsconfig.json'),
+            compilerOptions: {
+              baseUrl: '.',
+              paths: {
+                '@/*': ['src/*']
+              }
+            }
+          }
+        },
       },
       {
         test: /\.css$/,
