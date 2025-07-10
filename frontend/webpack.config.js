@@ -19,6 +19,7 @@ module.exports = (env, argv) => {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
+    modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
   },
   module: {
     rules: [
@@ -35,7 +36,7 @@ module.exports = (env, argv) => {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './public/index.html',
+      template: path.resolve(__dirname, 'public/index.html'),
     }),
     new webpack.DefinePlugin({
       'process.env': {

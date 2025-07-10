@@ -9,8 +9,17 @@ COPY package*.json ./
 # Install all dependencies (including devDependencies needed for build)
 RUN npm ci
 
+# Copy public directory first
+COPY public/ ./public/
+
 # Copy source code
-COPY . .
+COPY src/ ./src/
+COPY *.js ./
+COPY *.json ./
+COPY *.ts ./
+
+# Debug: List files to ensure they're copied correctly
+RUN ls -la && ls -la src/ && ls -la public/
 
 # Build the application
 ARG REACT_APP_API_URL
