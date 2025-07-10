@@ -11,11 +11,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY ./web_dashboard/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY ./web_dashboard/backend .
+
+# Copy scripts directory
+COPY ./scripts /app/scripts
 
 # Create a non-root user first
 RUN useradd -m -u 1000 appuser
