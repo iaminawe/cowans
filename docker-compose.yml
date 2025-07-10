@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -7,8 +5,9 @@ services:
       dockerfile: ./web_dashboard/backend/Dockerfile
     container_name: cowans-backend
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=development
       - DATABASE_URL=sqlite:////app/data/database.db
+      - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-here}
       - SHOPIFY_SHOP_URL=${SHOPIFY_SHOP_URL}
       - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
@@ -65,8 +64,9 @@ services:
     command: celery -A celery_app worker --loglevel=info
     environment:
       - DATABASE_URL=sqlite:////app/data/database.db
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SHOPIFY_SHOP_URL=${SHOPIFY_SHOP_URL}
       - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

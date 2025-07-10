@@ -290,6 +290,56 @@ script_definition_schema = ScriptDefinitionSchema()
 category_icon_schema = CategoryIconSchema()
 icon_generation_schema = IconGenerationSchema()
 
+# Health check endpoint
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint for Docker health checks and load balancers."""
+    health_status = {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": "1.0.0",
+        "services": {}
+    }
+    
+    overall_healthy = True
+    
+    # Check database connection
+    try:
+        with db_session_scope() as session:
+            from sqlalchemy import text
+            session.execute(text("SELECT 1"))
+        health_status["services"]["database"] = "healthy"
+    except Exception as e:
+        health_status["services"]["database"] = f"unhealthy: {str(e)}"
+        overall_healthy = False
+    
+    # Check Redis connection if available
+    try:
+        if redis_client and redis_client.ping():
+            health_status["services"]["redis"] = "healthy"
+        else:
+            health_status["services"]["redis"] = "unavailable"
+    except Exception as e:
+        health_status["services"]["redis"] = f"unavailable: {str(e)}"
+    
+    # Basic app health (always healthy if we can respond)
+    health_status["services"]["app"] = "healthy"
+    
+    if not overall_healthy:
+        health_status["status"] = "degraded"
+        return jsonify(health_status), 200  # Return 200 even if degraded for basic liveness
+    
+    return jsonify(health_status), 200
+
+# Simple liveness check (for basic container health)
+@app.route("/health/live", methods=["GET"])
+def liveness_check():
+    """Simple liveness check that always returns healthy if app is running."""
+    return jsonify({
+        "status": "alive",
+        "timestamp": time.time()
+    }), 200
+
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     """Handle user login with Supabase."""

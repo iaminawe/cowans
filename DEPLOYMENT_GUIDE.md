@@ -69,10 +69,35 @@ Standard deployment with nginx proxy for local development.
 
 ## Health Checks
 
-Both configurations include health checks:
-- Backend: `http://localhost:3560/health`
-- Frontend: `http://localhost:80/health`
-- Redis: `redis-cli ping`
+Both configurations include comprehensive health checks:
+
+### Backend Health Endpoints
+- **Main Health Check**: `http://localhost:3560/health`
+  - Returns detailed status of database, Redis, and app services
+  - Returns HTTP 200 with "degraded" status if some services are unavailable
+  - Used by Docker health checks and load balancers
+- **Simple Liveness Check**: `http://localhost:3560/health/live`
+  - Basic endpoint that always returns HTTP 200 if Flask is running
+  - Useful for basic container health verification
+
+### Service Health Checks
+- **Frontend**: `http://localhost:80/` (nginx health check)
+- **Redis**: `redis-cli ping`
+- **Celery**: Inherits backend health check configuration
+
+### Health Check Response Format
+```json
+{
+  "status": "healthy|degraded",
+  "timestamp": 1752184713.69,
+  "version": "1.0.0",
+  "services": {
+    "app": "healthy",
+    "database": "healthy|unhealthy: error details",
+    "redis": "healthy|unavailable: error details"
+  }
+}
+```
 
 ## Troubleshooting
 
