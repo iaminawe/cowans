@@ -96,7 +96,7 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
   const loadProductTypes = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.get('/collections/product-types-summary');
+      const data: any = await apiClient.get('/collections/product-types-summary');
       setProductTypes(data.product_types);
     } catch (error) {
       console.error('Error loading product types:', error);
@@ -107,7 +107,7 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
 
   const loadCollections = async () => {
     try {
-      const data = await apiClient.get('/collections/managed');
+      const data: any = await apiClient.get('/collections/managed');
       setCollections(data.collections);
     } catch (error) {
       console.error('Error loading collections:', error);
@@ -122,7 +122,7 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
 
     setIsGeneratingAI(true);
     try {
-      const data = await apiClient.post('/collections/ai-suggestions', {
+      const data: any = await apiClient.post('/collections/ai-suggestions', {
         product_types: selectedTypes
       });
       
@@ -171,7 +171,7 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
         }
       };
 
-      const data = await apiClient.post('/collections/create', collectionData);
+      const data: any = await apiClient.post('/collections/create', collectionData);
       
       // Update product type status
       setProductTypes(prev =>
@@ -237,7 +237,7 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
 
   const syncCollectionToShopify = async (collection: Collection) => {
     try {
-      const data = await apiClient.post(`/collections/${collection.id}/sync-to-shopify`);
+      const data: any = await apiClient.post(`/collections/${collection.id}/sync-to-shopify`);
       
       // Update collection status
       setCollections(prev =>

@@ -66,7 +66,7 @@ export function ProductAnalyticsLive() {
   const fetchAnalytics = async () => {
     try {
       const data = await apiClient.get('/dashboard/analytics/stats');
-      setData(data);
+      setData(data as AnalyticsData);
       setError(null);
     } catch (err: any) {
       console.error('Failed to fetch analytics:', err);

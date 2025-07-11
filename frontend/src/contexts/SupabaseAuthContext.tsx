@@ -80,7 +80,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       }
 
       // Get user profile from backend
-      const response = await apiClient.getCurrentUser();
+      const response: any = await apiClient.getCurrentUser();
       return response.user;
     } catch (error) {
       console.error('Failed to sync local user:', error);
@@ -120,7 +120,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
 
     try {
       // Use our backend API for signup
-      const response = await apiClient.post('/auth/signup', {
+      const response: any = await apiClient.post('/auth/signup', {
         email,
         password,
         first_name: firstName,
@@ -146,9 +146,9 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           const localUser: LocalUser = {
             id: response.user.id,
             email: response.user.email,
-            firstName: response.user.first_name || '',
-            lastName: response.user.last_name || '',
-            isAdmin: response.user.is_admin || false,
+            first_name: response.user.first_name || '',
+            last_name: response.user.last_name || '',
+            is_admin: response.user.is_admin || false,
           };
           setAuthState(session.user, session, localUser);
         } else {

@@ -49,6 +49,15 @@ class ApiClient {
     }
   }
 
+  setAuthToken(token: string | null): void {
+    this.token = token;
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const config: RequestInit = {
