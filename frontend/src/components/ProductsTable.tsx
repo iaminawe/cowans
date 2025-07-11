@@ -77,7 +77,7 @@ export function ProductsTable({
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
-  const [perPage] = useState(50);
+  const [perPage, setPerPage] = useState(100);
   const [totalProducts, setTotalProducts] = useState(0);
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [batchAction, setBatchAction] = useState<string>('');
@@ -539,20 +539,41 @@ export function ProductsTable({
           </div>
           
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalProducts > 0 && (
             <div className="flex items-center justify-between p-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Showing {((page - 1) * perPage) + 1} to {Math.min(page * perPage, totalProducts)} of {totalProducts} products
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((page - 1) * perPage) + 1} to {Math.min(page * perPage, totalProducts)} of {totalProducts} products
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="pageSize" className="text-sm">Per page:</Label>
+                  <Select value={perPage.toString()} onValueChange={(value) => {
+                    setPerPage(parseInt(value));
+                    setPage(1); // Reset to first page when changing page size
+                  }}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="250">250</SelectItem>
+                      <SelectItem value="500">500</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     const pageNum = i + 1;
@@ -586,7 +607,8 @@ export function ProductsTable({
                 >
                   Next
                 </Button>
-              </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
