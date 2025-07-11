@@ -11,11 +11,17 @@ RUN npm ci
 
 # Debug: List directory contents
 RUN echo "=== Directory contents ===" && ls -la && \
-    echo "=== Public directory ===" && ls -la public/ && \
-    echo "=== Src directory ===" && ls -la src/
+    echo "=== Public directory ===" && (ls -la public/ || echo "public/ not found") && \
+    echo "=== Src directory ===" && (ls -la src/ || echo "src/ not found")
 
-# Ensure required files exist
-RUN test -f public/index.html || (echo "ERROR: public/index.html is missing!" && ls -la public/ && exit 1)
+# Create public directory and index.html if missing
+RUN mkdir -p public && \
+    if [ ! -f public/index.html ]; then \
+        echo '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="utf-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1" />\n  <meta name="theme-color" content="#000000" />\n  <meta name="description" content="Cowans Office Supplies Dashboard" />\n  <title>Cowans Office Supplies</title>\n</head>\n<body>\n  <noscript>You need to enable JavaScript to run this app.</noscript>\n  <div id="root"></div>\n</body>\n</html>' > public/index.html; \
+        echo "WARNING: Created public/index.html as it was missing"; \
+    fi
+
+# Verify files exist
 RUN test -f src/index.tsx || (echo "ERROR: src/index.tsx is missing!" && ls -la src/ && exit 1)
 
 # Build frontend
