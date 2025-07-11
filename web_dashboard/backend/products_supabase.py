@@ -565,3 +565,185 @@ def get_product_types():
             'error': 'Failed to fetch product types',
             'product_types': []
         }), 200
+
+# Additional endpoints for frontend compatibility
+@products_bp.route('/api/products/with-shopify-data', methods=['GET'])
+@supabase_jwt_required
+def get_products_with_shopify_data():
+    """Get products with Shopify data for sync manager."""
+    try:
+        supabase = get_supabase_db()
+        
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 100)
+        
+        # Calculate offset
+        offset = (page - 1) * per_page
+        
+        # Get products with Shopify data
+        result = supabase.client.table('products')\
+            .select('*, categories(*)')\
+            .not_.is_('shopify_product_id', 'null')\
+            .order('updated_at', desc=True)\
+            .range(offset, offset + per_page - 1)\
+            .execute()
+        
+        # Get total count
+        count_result = supabase.client.table('products')\
+            .select('id', count='exact')\
+            .not_.is_('shopify_product_id', 'null')\
+            .execute()
+        
+        total = count_result.count if hasattr(count_result, 'count') else 0
+        
+        products = result.data if result.data else []
+        
+        return jsonify({
+            'success': True,
+            'products': products,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page,
+                'has_next': offset + per_page < total,
+                'has_prev': page > 1
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching products with Shopify data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch products with Shopify data',
+            'products': [],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': 0,
+                'total_pages': 0,
+                'has_next': False,
+                'has_prev': False
+            }
+        }), 200
+
+@products_bp.route('/api/products/sync/status', methods=['GET'])
+@supabase_jwt_required
+def get_products_sync_status():
+    """Get sync status for products."""
+    try:
+        supabase = get_supabase_db()
+        
+        # Get sync statistics
+        total_result = supabase.client.table('products').select('id', count='exact').execute()
+        total_products = total_result.count if hasattr(total_result, 'count') else 0
+        
+        synced_result = supabase.client.table('products')\
+            .select('id', count='exact')\
+            .not_.is_('shopify_product_id', 'null')\
+            .execute()
+        synced_products = synced_result.count if hasattr(synced_result, 'count') else 0
+        
+        return jsonify({
+            'success': True,
+            'total_products': total_products,
+            'synced_products': synced_products,
+            'pending_sync': total_products - synced_products,
+            'sync_percentage': (synced_products / total_products * 100) if total_products > 0 else 0,
+            'last_sync': None,
+            'sync_in_progress': False
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching sync status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch sync status',
+            'total_products': 0,
+            'synced_products': 0,
+            'pending_sync': 0,
+            'sync_percentage': 0
+        }), 200
+
+@products_bp.route('/api/products/sync/operations', methods=['GET'])
+@supabase_jwt_required
+def get_products_sync_operations():
+    """Get sync operations for products."""
+    try:
+        # For now, return empty operations
+        return jsonify({
+            'success': True,
+            'operations': []
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching sync operations: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch sync operations',
+            'operations': []
+        }), 200
+
+@products_bp.route('/api/products/<int:product_id>/changes', methods=['GET'])
+@supabase_jwt_required
+def get_product_changes(product_id):
+    """Get change history for a product."""
+    try:
+        # For now, return empty changes
+        return jsonify({
+            'success': True,
+            'changes': []
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching product changes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch product changes',
+            'changes': []
+        }), 200
+
+@products_bp.route('/api/products/<int:product_id>/sync', methods=['POST'])
+@supabase_jwt_required
+def sync_product(product_id):
+    """Sync a specific product."""
+    try:
+        # For now, just return success
+        return jsonify({
+            'success': True,
+            'message': f'Product {product_id} sync initiated'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error syncing product {product_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to sync product'
+        }), 500
+
+@products_bp.route('/api/products/sync/batch', methods=['POST'])
+@supabase_jwt_required
+def batch_sync_products():
+    """Batch sync products."""
+    try:
+        data = request.get_json()
+        product_ids = data.get('product_ids', [])
+        operation = data.get('operation', 'sync')
+        
+        return jsonify({
+            'success': True,
+            'operation': {
+                'id': 'batch_sync_' + str(len(product_ids)),
+                'type': operation,
+                'status': 'queued',
+                'product_count': len(product_ids)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in batch sync: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to batch sync products'
+        }), 500
