@@ -69,7 +69,9 @@ from batch_api import batch_bp
 from parallel_sync_api import parallel_sync_bp
 from categories_api import categories_bp
 from admin_api import admin_bp
-from dashboard_stats_api import dashboard_stats_bp
+# Use Supabase version instead of SQLite version
+# from dashboard_stats_api import dashboard_stats_bp
+from dashboard_stats_supabase import dashboard_stats_bp
 from products_staging_api import products_staging_bp
 from enhanced_sync_api import enhanced_sync_bp
 from enhanced_icon_sync_api import enhanced_icon_sync_bp
@@ -964,23 +966,7 @@ def get_category_suggestions():
 
 # Temporary stub endpoints to fix 500 errors
 # TODO: Replace with proper Supabase implementations
-
-@app.route("/api/dashboard/enhanced-stats", methods=["GET"])
-@supabase_jwt_required
-def get_enhanced_stats():
-    """Temporary stub for dashboard stats."""
-    return jsonify({
-        "total_products": 0,
-        "total_collections": 0,
-        "total_categories": 0,
-        "sync_status": "inactive",
-        "last_sync": None,
-        "stats": {
-            "products_synced": 0,
-            "collections_synced": 0,
-            "pending_sync": 0
-        }
-    })
+# NOTE: /api/dashboard/enhanced-stats is now handled by dashboard_stats_supabase.py
 
 @app.route("/api/sync/status", methods=["GET"])
 @supabase_jwt_required
