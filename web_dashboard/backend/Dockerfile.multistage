@@ -3,39 +3,20 @@ FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Copy frontend files
-COPY ./frontend/package*.json ./
+# Copy entire frontend directory first
+COPY ./frontend ./
+
+# Install dependencies
 RUN npm ci
 
-# Copy all frontend source files
-COPY ./frontend/tsconfig.json ./
-COPY ./frontend/webpack.config.js ./
-COPY ./frontend/webpack.config.docker.js ./
-COPY ./frontend/postcss.config.js ./
-COPY ./frontend/tailwind.config.js ./
-COPY ./frontend/components.json ./
-COPY ./frontend/.eslintrc.json ./ || true
-COPY ./frontend/public ./public
-COPY ./frontend/src ./src
+# Debug: List directory contents
+RUN echo "=== Directory contents ===" && ls -la && \
+    echo "=== Public directory ===" && ls -la public/ && \
+    echo "=== Src directory ===" && ls -la src/
 
-# Ensure required directories exist
-RUN mkdir -p src/lib
-
-# Create utils.ts if it doesn't exist (fallback)
-RUN if [ ! -f "src/lib/utils.ts" ]; then \
-    echo 'import { type ClassValue, clsx } from "clsx"; \
-import { twMerge } from "tailwind-merge"; \
-\
-export function cn(...inputs: ClassValue[]) { \
-  return twMerge(clsx(inputs)); \
-}' > src/lib/utils.ts; \
-    echo "WARNING: Created src/lib/utils.ts as it was missing"; \
-    fi
-
-# Verify critical files exist
-RUN test -f public/index.html || (echo "ERROR: public/index.html is missing!" && exit 1)
-RUN test -f src/index.tsx || (echo "ERROR: src/index.tsx is missing!" && exit 1)
-RUN test -f webpack.config.docker.js || (echo "ERROR: webpack.config.docker.js is missing!" && exit 1)
+# Ensure required files exist
+RUN test -f public/index.html || (echo "ERROR: public/index.html is missing!" && ls -la public/ && exit 1)
+RUN test -f src/index.tsx || (echo "ERROR: src/index.tsx is missing!" && ls -la src/ && exit 1)
 
 # Build frontend
 ARG REACT_APP_API_URL=/api
