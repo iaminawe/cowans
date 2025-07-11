@@ -26,6 +26,7 @@ from logging.handlers import RotatingFileHandler
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
+from marshmallow import ValidationError
 
 # Icon generation imports
 from icon_generation_service import (
@@ -398,8 +399,19 @@ def supabase_test():
 def login():
     """Handle user login with Supabase."""
     try:
-        data = login_schema.load(request.get_json())
+        # Debug logging
+        app.logger.info(f"Login request headers: {dict(request.headers)}")
+        app.logger.info(f"Login request content-type: {request.content_type}")
+        app.logger.info(f"Login request data: {request.data}")
+        
+        json_data = request.get_json(force=True)  # Force JSON parsing
+        if not json_data:
+            return jsonify({"message": "No JSON data provided"}), 400
+        data = login_schema.load(json_data)
+    except ValidationError as e:
+        return jsonify({"message": "Invalid request data", "errors": e.messages}), 400
     except Exception as e:
+        app.logger.error(f"Login request parsing error: {str(e)}")
         return jsonify({"message": "Invalid request data", "errors": str(e)}), 400
     
     try:
@@ -452,7 +464,11 @@ def signup():
         last_name = data.get('last_name', '').strip()
         
         # Register with Supabase
-        result = auth_service.sign_up(email, password, first_name=first_name, last_name=last_name)
+        metadata = {
+            "first_name": first_name,
+            "last_name": last_name
+        }
+        result = auth_service.sign_up(email, password, metadata)
         
         app.logger.info(f"New user registered: {email}")
         
