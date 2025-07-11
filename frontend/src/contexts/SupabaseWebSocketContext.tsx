@@ -37,7 +37,7 @@ interface WebSocketProviderProps {
 
 export function SupabaseWebSocketProvider({ 
   children, 
-  url = 'http://localhost:3560',
+  url = process.env.REACT_APP_WEBSOCKET_URL || '',
   reconnectInterval = 5000,
   maxReconnectAttempts = 5,
   enableWebSocket = true  // Enabled by default with Supabase auth

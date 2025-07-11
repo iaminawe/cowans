@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Package, TrendingUp, ShoppingCart, List, BarChart3, GitBranch } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 export function ProductsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -28,11 +29,8 @@ export function ProductsDashboard() {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/dashboard/products/enhanced-stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await apiClient.get('/dashboard/products/enhanced-stats');
+      setStats(data);
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
     } finally {
@@ -46,32 +44,16 @@ export function ProductsDashboard() {
     setCreateSuccess(null);
 
     try {
-      const token = localStorage.getItem('authToken') || 'dev-token';
-      
-      const response = await fetch('http://localhost:3560/api/shopify/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(productData)
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setCreateSuccess(`Product "${productData.title}" created successfully!`);
-        // Auto-switch to products tab after success
-        setTimeout(() => {
-          setActiveTab('products');
-          setCreateSuccess(null);
-        }, 2000);
-      } else {
-        setCreateError(result.error || 'Failed to create product');
-      }
-    } catch (error) {
+      const result = await apiClient.post('/shopify/products', productData);
+      setCreateSuccess(`Product "${productData.title}" created successfully!`);
+      // Auto-switch to products tab after success
+      setTimeout(() => {
+        setActiveTab('products');
+        setCreateSuccess(null);
+      }, 2000);
+    } catch (error: any) {
       console.error('Error creating product:', error);
-      setCreateError('Network error. Please try again.');
+      setCreateError(error.message || 'Network error. Please try again.');
     } finally {
       setIsCreating(false);
     }

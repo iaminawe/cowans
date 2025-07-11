@@ -13,6 +13,7 @@ import {
   PieChart,
   Activity
 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 interface AnalyticsData {
   stats: {
@@ -64,17 +65,12 @@ export function ProductAnalyticsLive() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/dashboard/analytics/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setData(data);
-        setError(null);
-      } else {
-        throw new Error('Failed to fetch analytics');
-      }
-    } catch (err) {
+      const data = await apiClient.get('/dashboard/analytics/stats');
+      setData(data);
+      setError(null);
+    } catch (err: any) {
       console.error('Failed to fetch analytics:', err);
-      setError('Failed to load analytics data');
+      setError(err.message || 'Failed to load analytics data');
     } finally {
       setLoading(false);
     }

@@ -105,11 +105,8 @@ export function CollectionsDashboard() {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/dashboard/collections/summary');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await apiClient.get('/dashboard/collections/summary');
+      setStats(data);
     } catch (error) {
       console.error('Failed to fetch collection stats:', error);
     }

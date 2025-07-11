@@ -58,6 +58,7 @@ module.exports = (env, argv) => {
     new webpack.DefinePlugin({
       'process.env': {
         'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || '/api'),
+        'REACT_APP_WEBSOCKET_URL': JSON.stringify(process.env.REACT_APP_WEBSOCKET_URL || ''),
         'REACT_APP_SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
         'SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
       },

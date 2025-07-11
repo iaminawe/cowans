@@ -101,19 +101,9 @@ export function ProductsTable({
         sort_order: sortOrder
       };
       
-      const response = await fetch(`http://localhost:3560/api/products?${new URLSearchParams(params as any)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data.products);
-        setTotalProducts(data.total);
-      } else {
-        throw new Error('Failed to load products');
-      }
+      const data = await apiClient.get(`/products?${new URLSearchParams(params as any)}`);
+      setProducts(data.products);
+      setTotalProducts(data.total);
     } catch (error: any) {
       console.error('Error loading products:', error);
       setError(error.message || 'Failed to load products');
@@ -204,33 +194,11 @@ export function ProductsTable({
   };
 
   const updateProductsStatus = async (productIds: number[], status: string) => {
-    const response = await fetch('http://localhost:3560/api/products/batch/update-status', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ product_ids: productIds, status })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update products status');
-    }
+    await apiClient.post('/products/batch/update-status', { product_ids: productIds, status });
   };
 
   const updateProductsCategory = async (productIds: number[], categoryId: number) => {
-    const response = await fetch('http://localhost:3560/api/products/batch/update-category', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ product_ids: productIds, category_id: categoryId })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update products category');
-    }
+    await apiClient.post('/products/batch/update-category', { product_ids: productIds, category_id: categoryId });
   };
 
   const addProductsToCollection = async (productIds: number[], collectionId: number) => {
@@ -238,51 +206,19 @@ export function ProductsTable({
   };
 
   const syncProductsToShopify = async (productIds: number[]) => {
-    const response = await fetch('http://localhost:3560/api/shopify/sync/products', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ product_ids: productIds })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to sync products to Shopify');
-    }
+    await apiClient.post('/shopify/sync/products', { product_ids: productIds });
   };
 
   const updateProductsPricing = async (productIds: number[], priceData: any) => {
-    const response = await fetch('http://localhost:3560/api/products/batch/update-pricing', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        product_ids: productIds,
-        ...priceData
-      })
+    await apiClient.post('/products/batch/update-pricing', { 
+      product_ids: productIds,
+      ...priceData
     });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update products pricing');
-    }
   };
 
   const deleteProducts = async (productIds: number[]) => {
-    const response = await fetch('http://localhost:3560/api/products/batch/delete', {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ product_ids: productIds })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to delete products');
-    }
+    // Using POST because DELETE with body is not standard
+    await apiClient.post('/products/batch/delete', { product_ids: productIds });
   };
 
   const getStatusBadge = (status: string) => {

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { apiClient } from '@/lib/api';
 import { 
   Package,
   Plus,
@@ -95,19 +96,8 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
   const loadProductTypes = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3560/api/collections/product-types-summary', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProductTypes(data.product_types);
-      } else {
-        console.error('Failed to load product types');
-      }
+      const data = await apiClient.get('/collections/product-types-summary');
+      setProductTypes(data.product_types);
     } catch (error) {
       console.error('Error loading product types:', error);
     } finally {
@@ -117,19 +107,8 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
 
   const loadCollections = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/collections/managed', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCollections(data.collections);
-      } else {
-        console.error('Failed to load collections');
-      }
+      const data = await apiClient.get('/collections/managed');
+      setCollections(data.collections);
     } catch (error) {
       console.error('Error loading collections:', error);
     }
@@ -143,35 +122,25 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
 
     setIsGeneratingAI(true);
     try {
-      const response = await fetch('http://localhost:3560/api/collections/ai-suggestions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          product_types: selectedTypes
-        })
+      const data = await apiClient.post('/collections/ai-suggestions', {
+        product_types: selectedTypes
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Update product types with AI suggestions
-        setProductTypes(prev => 
-          prev.map(pt => {
-            const suggestion = data.suggestions.find((s: any) => s.product_type === pt.name);
-            if (suggestion) {
-              return {
-                ...pt,
-                suggested_collection_name: suggestion.collection_name,
-                suggested_description: suggestion.description,
-                collection_status: 'suggested'
-              };
-            }
-            return pt;
-          })
-        );
+      
+      // Update product types with AI suggestions
+      setProductTypes(prev => 
+        prev.map(pt => {
+          const suggestion = data.suggestions.find((s: any) => s.product_type === pt.name);
+          if (suggestion) {
+            return {
+              ...pt,
+              suggested_collection_name: suggestion.collection_name,
+              suggested_description: suggestion.description,
+              collection_status: 'suggested'
+            };
+          }
+          return pt;
+        })
+      );
 
         console.log(`Generated AI suggestions for ${selectedTypes.length} product types`);
       } else {
@@ -206,38 +175,24 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
         }
       };
 
-      const response = await fetch('http://localhost:3560/api/collections/create', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(collectionData)
-      });
+      const data = await apiClient.post('/collections/create', collectionData);
+      
+      // Update product type status
+      setProductTypes(prev =>
+        prev.map(pt =>
+          pt.name === productType.name
+            ? { ...pt, collection_status: 'created', existing_collection_id: data.collection.id }
+            : pt
+        )
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Update product type status
-        setProductTypes(prev =>
-          prev.map(pt =>
-            pt.name === productType.name
-              ? { ...pt, collection_status: 'created', existing_collection_id: data.collection.id }
-              : pt
-          )
-        );
-
-        // Reload collections
-        loadCollections();
-        
-        console.log(`Created collection for product type: ${productType.name}`);
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to create collection: ${errorData.message}`);
-      }
-    } catch (error) {
+      // Reload collections
+      loadCollections();
+      
+      console.log(`Created collection for product type: ${productType.name}`);
+    } catch (error: any) {
       console.error('Error creating collection:', error);
-      alert('Network error while creating collection');
+      alert(error.message || 'Network error while creating collection');
     }
   };
 
@@ -262,75 +217,50 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
         } : undefined
       };
 
-      const response = await fetch('http://localhost:3560/api/collections/create', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(collectionData)
+      await apiClient.post('/collections/create', collectionData);
+      
+      setIsCreateDialogOpen(false);
+      setNewCollection({
+        name: '',
+        description: '',
+        status: 'draft',
+        ai_generated: false,
+        created_locally: true
       });
-
-      if (response.ok) {
-        setIsCreateDialogOpen(false);
-        setNewCollection({
-          name: '',
-          description: '',
-          status: 'draft',
-          ai_generated: false,
-          created_locally: true
-        });
-        setSelectedTypes([]);
-        
-        // Reload collections
-        loadCollections();
-        
-        console.log('Created custom collection successfully');
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to create collection: ${errorData.message}`);
-      }
-    } catch (error) {
+      setSelectedTypes([]);
+      
+      // Reload collections
+      loadCollections();
+      
+      console.log('Created custom collection successfully');
+    } catch (error: any) {
       console.error('Error creating custom collection:', error);
-      alert('Network error while creating collection');
+      alert(error.message || 'Network error while creating collection');
     }
   };
 
   const syncCollectionToShopify = async (collection: Collection) => {
     try {
-      const response = await fetch(`http://localhost:3560/api/collections/${collection.id}/sync-to-shopify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Update collection status
-        setCollections(prev =>
-          prev.map(c =>
-            c.id === collection.id
-              ? { 
-                  ...c, 
-                  status: 'synced', 
-                  shopify_collection_id: data.shopify_collection_id,
-                  shopify_synced_at: new Date().toISOString()
-                }
-              : c
-          )
-        );
-        
-        console.log(`Synced collection to Shopify: ${collection.name}`);
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to sync collection: ${errorData.message}`);
-      }
-    } catch (error) {
+      const data = await apiClient.post(`/collections/${collection.id}/sync-to-shopify`);
+      
+      // Update collection status
+      setCollections(prev =>
+        prev.map(c =>
+          c.id === collection.id
+            ? { 
+                ...c, 
+                status: 'synced', 
+                shopify_collection_id: data.shopify_collection_id,
+                shopify_synced_at: new Date().toISOString()
+              }
+            : c
+        )
+      );
+      
+      console.log(`Synced collection to Shopify: ${collection.name}`);
+    } catch (error: any) {
       console.error('Error syncing collection:', error);
-      alert('Network error while syncing collection');
+      alert(error.message || 'Network error while syncing collection');
     }
   };
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Package, TrendingUp, ShoppingCart, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 export function ProductsDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -18,32 +19,17 @@ export function ProductsDashboard() {
     setCreateSuccess(null);
 
     try {
-      const token = localStorage.getItem('authToken') || 'dev-token';
+      const result = await apiClient.post('/shopify/products', productData);
       
-      const response = await fetch('http://localhost:3560/api/shopify/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(productData)
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setCreateSuccess(`Product "${productData.title}" created successfully!`);
-        // Auto-close form after success
-        setTimeout(() => {
-          setShowCreateForm(false);
-          setCreateSuccess(null);
-        }, 2000);
-      } else {
-        setCreateError(result.error || 'Failed to create product');
-      }
-    } catch (error) {
+      setCreateSuccess(`Product "${productData.title}" created successfully!`);
+      // Auto-close form after success
+      setTimeout(() => {
+        setShowCreateForm(false);
+        setCreateSuccess(null);
+      }, 2000);
+    } catch (error: any) {
       console.error('Error creating product:', error);
-      setCreateError('Network error. Please try again.');
+      setCreateError(error.message || 'Network error. Please try again.');
     } finally {
       setIsCreating(false);
     }

@@ -376,7 +376,7 @@ class SecureWebSocketService {
 
 // Create singleton instance
 export const secureWebSocket = new SecureWebSocketService({
-  url: process.env.REACT_APP_WEBSOCKET_URL || 'http://localhost:3560',
+  url: process.env.REACT_APP_WEBSOCKET_URL || '',
 });
 
 export default secureWebSocket;

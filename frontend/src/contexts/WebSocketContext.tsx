@@ -36,7 +36,7 @@ interface WebSocketProviderProps {
 
 export function WebSocketProvider({ 
   children, 
-  url = 'http://localhost:3560',
+  url = process.env.REACT_APP_WEBSOCKET_URL || '',
   reconnectInterval = 5000,
   maxReconnectAttempts = 5,
   enableWebSocket = false

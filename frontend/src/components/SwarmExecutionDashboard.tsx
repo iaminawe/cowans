@@ -7,6 +7,7 @@ import { IconPreviewGrid, GeneratedIcon } from './IconPreviewGrid';
 import { CategoryManagementPanel, Category } from './CategoryManagementPanel';
 import { BatchProgressTracker, BatchOperation, BatchStage } from './BatchProgressTracker';
 import { ShopifyCollectionManager } from './ShopifyCollectionManager';
+import { apiClient } from '@/lib/api';
 
 // Component interfaces for imported components
 interface APIStatusIndicatorProps {
@@ -199,28 +200,16 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
 
   const loadCategoriesFromAPI = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/categories', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const data = await apiClient.get('/categories');
+      const apiCategories: CategoryData[] = data.categories.map((category: any) => ({
+        id: category.id.toString(),
+        name: category.name,
+        description: category.description,
+        keywords: [] // Could extract from metadata or other fields
+      }));
       
-      if (response.ok) {
-        const data = await response.json();
-        const apiCategories: CategoryData[] = data.categories.map((category: any) => ({
-          id: category.id.toString(),
-          name: category.name,
-          description: category.description,
-          keywords: [] // Could extract from metadata or other fields
-        }));
-        
-        setCategories(apiCategories);
-        console.log(`Loaded ${apiCategories.length} categories from API`);
-      } else {
-        console.error('Failed to load categories from API:', response.status);
-        // Keep mock categories as fallback
-      }
+      setCategories(apiCategories);
+      console.log(`Loaded ${apiCategories.length} categories from API`);
     } catch (error) {
       console.error('Failed to load categories from API:', error);
       // Keep mock categories as fallback
@@ -229,33 +218,24 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
 
   const loadIconsFromAPI = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/icons?limit=100', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const data = await apiClient.get('/icons?limit=100');
+      const apiIcons: GeneratedIcon[] = data.icons.map((icon: any) => ({
+        id: icon.id.toString(),
+        categoryId: icon.category_id.toString(),
+        categoryName: icon.category_name,
+        name: icon.filename.replace(/\.[^/.]+$/, ''), // Remove file extension
+        style: icon.style || 'modern',
+        size: icon.width?.toString() || '128',
+        format: icon.format?.toLowerCase() || 'png',
+        imageUrl: `/api/icons/categories/${icon.category_id}/icon`,
+        thumbnailUrl: `/api/icons/categories/${icon.category_id}/icon`,
+        generatedAt: icon.created_at,
+        tags: [], // Could be extracted from metadata
+        colorScheme: 'brand',
+        isFavorite: icon.isFavorite || false
+      }));
       
-      if (response.ok) {
-        const data = await response.json();
-        const apiIcons: GeneratedIcon[] = data.icons.map((icon: any) => ({
-          id: icon.id.toString(),
-          categoryId: icon.category_id.toString(),
-          categoryName: icon.category_name,
-          name: icon.filename.replace(/\.[^/.]+$/, ''), // Remove file extension
-          style: icon.style || 'modern',
-          size: icon.width?.toString() || '128',
-          format: icon.format?.toLowerCase() || 'png',
-          imageUrl: `http://localhost:3560/api/icons/categories/${icon.category_id}/icon`,
-          thumbnailUrl: `http://localhost:3560/api/icons/categories/${icon.category_id}/icon`,
-          generatedAt: icon.created_at,
-          tags: [], // Could be extracted from metadata
-          colorScheme: 'brand',
-          isFavorite: icon.isFavorite || false
-        }));
-        
-        setGeneratedIcons(apiIcons);
-      }
+      setGeneratedIcons(apiIcons);
     } catch (error) {
       console.error('Failed to load icons from API:', error);
       // Keep mock data as fallback
@@ -265,37 +245,26 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
   const loadShopifyCollections = async () => {
     try {
       // Load collections from our database (categories with Shopify integration)
-      const response = await fetch('http://localhost:3560/api/collections', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const data = await apiClient.get('/collections');
       
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Convert to ShopifyCollection format for the ShopifyCollectionManager
-        const collections: ShopifyCollection[] = data.collections
-          .filter((cat: any) => cat.shopify_collection_id) // Only categories linked to Shopify
-          .map((cat: any) => ({
-            id: cat.shopify_collection_id,
-            graphql_id: `gid://shopify/Collection/${cat.shopify_collection_id}`,
-            handle: cat.shopify_handle || cat.slug,
-            title: cat.name,
-            description: cat.description || '',
-            products_count: 0, // Could be fetched if needed
-            image_url: cat.icon_url,
-            has_icon: cat.has_icon,
-            updated_at: cat.updated_at,
-            metafields: {}
-          }));
-        
-        setShopifyCollections(collections);
-        console.log(`Loaded ${collections.length} Shopify-linked collections from database`);
-      } else {
-        console.error('Failed to load collections from database:', response.status);
-      }
+      // Convert to ShopifyCollection format for the ShopifyCollectionManager
+      const collections: ShopifyCollection[] = data.collections
+        .filter((cat: any) => cat.shopify_collection_id) // Only categories linked to Shopify
+        .map((cat: any) => ({
+          id: cat.shopify_collection_id,
+          graphql_id: `gid://shopify/Collection/${cat.shopify_collection_id}`,
+          handle: cat.shopify_handle || cat.slug,
+          title: cat.name,
+          description: cat.description || '',
+          products_count: 0, // Could be fetched if needed
+          image_url: cat.icon_url,
+          has_icon: cat.has_icon,
+          updated_at: cat.updated_at,
+          metafields: {}
+        }));
+      
+      setShopifyCollections(collections);
+      console.log(`Loaded ${collections.length} Shopify-linked collections from database`);
     } catch (error) {
       console.error('Failed to load collections from database:', error);
     }
@@ -418,55 +387,41 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
       
       try {
         // Call the actual API to generate icon
-        const response = await fetch('http://localhost:3560/api/icons/generate', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            category_id: parseInt(categoryId.replace(/\D/g, '')) || 999,
-            category_name: category.name,
-            style: (['modern', 'flat', 'outlined', 'minimal'].includes(config.style) ? config.style : 'modern'),
-            color: config.foregroundColor || '#3B82F6',
-            size: Math.min(512, Math.max(32, parseInt(config.size) || 128)),
-            background: config.backgroundColor === 'transparent' ? 'transparent' : 'white'
-          })
+        const result = await apiClient.post('/icons/generate', {
+          category_id: parseInt(categoryId.replace(/\D/g, '')) || 999,
+          category_name: category.name,
+          style: (['modern', 'flat', 'outlined', 'minimal'].includes(config.style) ? config.style : 'modern'),
+          color: config.foregroundColor || '#3B82F6',
+          size: Math.min(512, Math.max(32, parseInt(config.size) || 128)),
+          background: config.backgroundColor === 'transparent' ? 'transparent' : 'white'
         });
         
-        if (response.ok) {
-          const result = await response.json();
-          completed++;
-          
-          // Add the generated icon to the list
-          const numericId = parseInt(categoryId.replace(/\D/g, '')) || 999;
-          const iconUrl = `http://localhost:3560/api/icons/categories/${numericId}/icon`;
-          const newIcon: GeneratedIcon = {
-            id: result.icon.id,
-            categoryId: categoryId,
-            categoryName: category.name,
-            name: category.name + ' Icon',
-            imageUrl: iconUrl,
-            thumbnailUrl: iconUrl,
-            format: 'png',
-            size: config.size || '128',
-            style: config.style || 'modern',
-            generatedAt: result.icon.created_at,
-            tags: category.keywords || [],
-            colorScheme: config.colorScheme || 'brand',
-            isFavorite: false
-          };
-          
-          setGeneratedIcons(prev => [...prev, newIcon]);
-          
-          // Refresh icons from API to get the latest data
-          loadIconsFromAPI();
-        } else {
-          failed++;
-          const errorData = await response.json();
-          console.error('Failed to generate icon for', category.name, '- Error:', errorData);
-        }
-      } catch (error) {
+        completed++;
+        
+        // Add the generated icon to the list
+        const numericId = parseInt(categoryId.replace(/\D/g, '')) || 999;
+        const iconUrl = `/api/icons/categories/${numericId}/icon`;
+        const newIcon: GeneratedIcon = {
+          id: result.icon.id,
+          categoryId: categoryId,
+          categoryName: category.name,
+          name: category.name + ' Icon',
+          imageUrl: iconUrl,
+          thumbnailUrl: iconUrl,
+          format: 'png',
+          size: config.size || '128',
+          style: config.style || 'modern',
+          generatedAt: result.icon.created_at,
+          tags: category.keywords || [],
+          colorScheme: config.colorScheme || 'brand',
+          isFavorite: false
+        };
+        
+        setGeneratedIcons(prev => [...prev, newIcon]);
+        
+        // Refresh icons from API to get the latest data
+        loadIconsFromAPI();
+      } catch (error: any) {
         failed++;
         console.error('Error generating icon:', error);
       }
@@ -502,22 +457,10 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
 
   const handleIconFavorite = async (iconId: string, favorite: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3560/api/icons/${iconId}/favorite`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ favorite })
-      });
-
-      if (response.ok) {
-        setGeneratedIcons(prev => prev.map(icon =>
-          icon.id === iconId ? { ...icon, isFavorite: favorite } : icon
-        ));
-      } else {
-        console.error('Failed to update favorite status');
-      }
+      await apiClient.put(`/icons/${iconId}/favorite`, { favorite });
+      setGeneratedIcons(prev => prev.map(icon =>
+        icon.id === iconId ? { ...icon, isFavorite: favorite } : icon
+      ));
     } catch (error) {
       console.error('Error updating favorite status:', error);
     }
@@ -529,36 +472,21 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
     }
     
     try {
-      const response = await fetch(`http://localhost:3560/api/icons/${iconId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setGeneratedIcons(prev => prev.filter(icon => icon.id !== iconId));
-        console.log(`Icon ${iconId} deleted successfully`);
-        
-        // Also refresh from API to ensure consistency
-        loadIconsFromAPI();
-      } else if (response.status === 401) {
-        console.error('Authentication failed - please refresh the page');
-        alert('Authentication failed - please refresh the page and try again');
-      } else if (response.status === 404) {
-        console.error('Icon not found - it may have already been deleted');
-        // Remove from frontend state anyway
+      await apiClient.delete(`/icons/${iconId}`);
+      setGeneratedIcons(prev => prev.filter(icon => icon.id !== iconId));
+      console.log(`Icon ${iconId} deleted successfully`);
+      
+      // Also refresh from API to ensure consistency
+      loadIconsFromAPI();
+    } catch (error: any) {
+      console.error('Error deleting icon:', error);
+      if (error.message?.includes('404')) {
+        // Icon not found - remove from frontend state anyway
         setGeneratedIcons(prev => prev.filter(icon => icon.id !== iconId));
         loadIconsFromAPI();
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to delete icon:', errorData.message || 'Unknown error');
-        alert(`Failed to delete icon: ${errorData.message || 'Unknown error'}`);
+        alert(error.message || 'Network error while deleting icon');
       }
-    } catch (error) {
-      console.error('Error deleting icon:', error);
-      alert('Network error while deleting icon');
     }
   };
 
@@ -573,31 +501,17 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
     }
     
     try {
-      const response = await fetch('http://localhost:3560/api/icons/bulk', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ icon_ids: iconIds.map(id => parseInt(id)) })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setGeneratedIcons(prev => prev.filter(icon => !iconIds.includes(icon.id)));
-        setSelectedIcons([]);
-        console.log(`${result.deleted_count} icons deleted successfully`);
-        
-        // Refresh from API to ensure consistency
-        loadIconsFromAPI();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to bulk delete icons:', errorData.message || 'Unknown error');
-        alert(`Failed to delete icons: ${errorData.message || 'Unknown error'}`);
-      }
-    } catch (error) {
+      // Using POST because DELETE with body is not standard
+      const result = await apiClient.post('/icons/bulk', { icon_ids: iconIds.map(id => parseInt(id)) });
+      setGeneratedIcons(prev => prev.filter(icon => !iconIds.includes(icon.id)));
+      setSelectedIcons([]);
+      console.log(`${result.deleted_count} icons deleted successfully`);
+      
+      // Refresh from API to ensure consistency
+      loadIconsFromAPI();
+    } catch (error: any) {
       console.error('Error bulk deleting icons:', error);
-      alert('Network error while deleting icons');
+      alert(error.message || 'Network error while deleting icons');
     }
   };
 
@@ -870,44 +784,30 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
           
           try {
             // Call the API to regenerate the icon
-            const response = await fetch('http://localhost:3560/api/icons/generate', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                category_id: parseInt(icon.categoryId.replace(/\D/g, '')) || 999,
-                category_name: icon.categoryName,
-                style: style,
-                color: '#3B82F6', // Use default or extract from current icon
-                size: parseInt(icon.size) || 128,
-                background: 'white'
-              })
+            const result = await apiClient.post('/icons/generate', {
+              category_id: parseInt(icon.categoryId.replace(/\D/g, '')) || 999,
+              category_name: icon.categoryName,
+              style: style,
+              color: '#3B82F6', // Use default or extract from current icon
+              size: parseInt(icon.size) || 128,
+              background: 'white'
             });
             
-            if (response.ok) {
-              const result = await response.json();
-              
-              // Refresh the entire icon list from API to get updated data
-              loadIconsFromAPI();
-              
-              // Update preview if it's the same icon
-              if (previewIcon?.id === iconId) {
-                const updatedIcon: GeneratedIcon = {
-                  ...icon,
-                  style: style,
-                  generatedAt: new Date().toISOString(),
-                  // Force refresh the image URL by adding timestamp
-                  imageUrl: `${icon.imageUrl}?t=${Date.now()}`
-                };
-                setPreviewIcon(updatedIcon);
-              }
-            } else {
-              console.error('Failed to regenerate icon');
-              // Could add toast notification here
+            // Refresh the entire icon list from API to get updated data
+            loadIconsFromAPI();
+            
+            // Update preview if it's the same icon
+            if (previewIcon?.id === iconId) {
+              const updatedIcon: GeneratedIcon = {
+                ...icon,
+                style: style,
+                generatedAt: new Date().toISOString(),
+                // Force refresh the image URL by adding timestamp
+                imageUrl: `${icon.imageUrl}?t=${Date.now()}`
+              };
+              setPreviewIcon(updatedIcon);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error regenerating icon:', error);
             // Could add toast notification here
           } finally {

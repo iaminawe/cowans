@@ -26,6 +26,7 @@ import {
   Layers
 } from 'lucide-react';
 import { ProductTypeCollectionManager } from './ProductTypeCollectionManager';
+import { apiClient } from '@/lib/api';
 
 interface Product {
   id: number;
@@ -95,30 +96,31 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
   const testConnection = async () => {
     try {
       // First try authenticated endpoint
-      let response = await fetch('http://localhost:3560/api/shopify/test-connection', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      // If auth fails, try debug endpoint (temporary)
-      if (response.status === 401) {
-        console.log('Auth failed, trying debug endpoint...');
-        response = await fetch('http://localhost:3560/api/shopify/test-connection-debug', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-      }
-
-      if (response.ok) {
-        const data = await response.json();
+      let data;
+      try {
+        data = await apiClient.get('/shopify/test-connection');
         setConnectionStatus('connected');
         setShopInfo(data.shop);
-      } else {
-        setConnectionStatus('error');
-        console.error('Shopify connection test failed');
+      } catch (error: any) {
+        // If auth fails, try debug endpoint (temporary)
+        if (error.message?.includes('401')) {
+          console.log('Auth failed, trying debug endpoint...');
+          const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/shopify/test-connection-debug`, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          if (response.ok) {
+            data = await response.json();
+            setConnectionStatus('connected');
+            setShopInfo(data.shop);
+          } else {
+            setConnectionStatus('error');
+            console.error('Shopify connection test failed');
+          }
+        } else {
+          throw error;
+        }
       }
     } catch (error) {
       setConnectionStatus('error');
@@ -128,17 +130,8 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
 
   const loadSyncStatus = async () => {
     try {
-      const response = await fetch('http://localhost:3560/api/shopify/products/sync-status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStatistics(data.statistics);
-      }
+      const data = await apiClient.get('/shopify/products/sync-status');
+      setStatistics(data.statistics);
     } catch (error) {
       console.error('Error loading sync status:', error);
     }
@@ -147,7 +140,7 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
   const loadProducts = async () => {
     try {
       setLoading(true);
-      let url = `http://localhost:3560/api/products/with-shopify-data?page=${currentPage}&per_page=50`;
+      let url = `/products/with-shopify-data?page=${currentPage}&per_page=50`;
       
       if (syncFilter === 'synced') {
         url += '&sync_status=success';
@@ -155,18 +148,9 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
         url += '&sync_status=not_synced';
       }
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data.products);
-        setTotalPages(data.pagination.total_pages);
-      }
+      const data = await apiClient.get(url);
+      setProducts(data.products);
+      setTotalPages(data.pagination.total_pages);
     } catch (error) {
       console.error('Error loading products:', error);
     } finally {
@@ -195,42 +179,28 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
         requestBody.resume_cursor = resumeCursor;
       }
       
-      const response = await fetch('http://localhost:3560/api/shopify/products/sync', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || 'dev-token'}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setLastSyncResult(data.results);
-        
-        // Handle rate limiting
-        if (data.rate_limited && data.resume_cursor) {
-          setResumeCursor(data.resume_cursor);
-          // Show progress based on actual data
-          if (data.progress) {
-            setSyncProgress(data.progress.percentage);
-          }
-        } else {
-          // Sync completed
-          setResumeCursor(null);
-          setSyncProgress(100);
+      const data = await apiClient.post('/shopify/products/sync', requestBody);
+      setLastSyncResult(data.results);
+      
+      // Handle rate limiting
+      if (data.rate_limited && data.resume_cursor) {
+        setResumeCursor(data.resume_cursor);
+        // Show progress based on actual data
+        if (data.progress) {
+          setSyncProgress(data.progress.percentage);
         }
-
-        // Reload data after sync
-        await loadSyncStatus();
-        await loadProducts();
       } else {
-        const errorData = await response.json();
-        alert(`Sync failed: ${errorData.message}`);
+        // Sync completed
+        setResumeCursor(null);
+        setSyncProgress(100);
       }
-    } catch (error) {
+
+      // Reload data after sync
+      await loadSyncStatus();
+      await loadProducts();
+    } catch (error: any) {
       console.error('Error during sync:', error);
-      alert('Network error during sync');
+      alert(error.message || 'Network error during sync');
     } finally {
       setSyncing(false);
       if (!resumeCursor) {
