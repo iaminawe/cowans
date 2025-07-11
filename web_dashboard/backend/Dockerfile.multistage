@@ -21,36 +21,14 @@ RUN echo "=== Directory contents ===" && ls -la && \
 # Create public directory and index.html if missing
 RUN mkdir -p public && \
     if [ ! -f public/index.html ]; then \
-        cat > public/index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#000000" />
-  <meta name="description" content="Cowans Office Supplies Dashboard" />
-  <title>Cowans Office Supplies</title>
-</head>
-<body>
-  <noscript>You need to enable JavaScript to run this app.</noscript>
-  <div id="root"></div>
-</body>
-</html>
-EOF
+        printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="utf-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1" />\n  <meta name="theme-color" content="#000000" />\n  <meta name="description" content="Cowans Office Supplies Dashboard" />\n  <title>Cowans Office Supplies</title>\n</head>\n<body>\n  <noscript>You need to enable JavaScript to run this app.</noscript>\n  <div id="root"></div>\n</body>\n</html>' > public/index.html && \
         echo "WARNING: Created public/index.html as it was missing"; \
     fi
 
 # Create lib directory and utils.ts if missing
 RUN mkdir -p src/lib && \
     if [ ! -f src/lib/utils.ts ]; then \
-        cat > src/lib/utils.ts << 'EOF'
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-EOF
+        printf 'import { type ClassValue, clsx } from "clsx";\nimport { twMerge } from "tailwind-merge";\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs));\n}' > src/lib/utils.ts && \
         echo "WARNING: Created src/lib/utils.ts as it was missing"; \
     fi
 
