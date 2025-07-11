@@ -143,6 +143,7 @@ def get_sync_stats():
         }), 200
 
 @dashboard_stats_bp.route('/api/dashboard/enhanced-stats', methods=['GET'])
+@dashboard_stats_bp.route('/api/dashboard/products/enhanced-stats', methods=['GET'])
 @supabase_jwt_required
 def get_enhanced_stats():
     """Get enhanced dashboard statistics combining all metrics"""
@@ -192,4 +193,86 @@ def get_enhanced_stats():
                 'collections_synced': 0,
                 'pending_sync': 0
             }
+        }), 200
+
+# Additional endpoints for frontend compatibility
+@dashboard_stats_bp.route('/api/dashboard/analytics/stats', methods=['GET'])
+@supabase_jwt_required
+def get_analytics_stats():
+    """Get analytics statistics for the dashboard"""
+    try:
+        # For now, return mock analytics data
+        # In a real implementation, this would pull from analytics service
+        return jsonify({
+            'views': 12543,
+            'clicks': 2156,
+            'conversions': 89,
+            'revenue': 5420.50,
+            'period': 'last_30_days',
+            'conversion_rate': 4.1,
+            'average_order_value': 60.91,
+            'bounce_rate': 32.4,
+            'page_views': 18765,
+            'unique_visitors': 8932,
+            'sessions': 11234,
+            'session_duration': 185.7
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching analytics stats: {str(e)}")
+        return jsonify({
+            'views': 0,
+            'clicks': 0,
+            'conversions': 0,
+            'revenue': 0,
+            'period': 'last_30_days',
+            'conversion_rate': 0,
+            'average_order_value': 0,
+            'bounce_rate': 0,
+            'page_views': 0,
+            'unique_visitors': 0,
+            'sessions': 0,
+            'session_duration': 0
+        }), 200
+
+@dashboard_stats_bp.route('/api/dashboard/collections/summary', methods=['GET'])
+@supabase_jwt_required
+def get_collections_summary():
+    """Get collections summary for the dashboard"""
+    try:
+        supabase = get_supabase_db()
+        
+        # Get collections
+        collections_result = supabase.client.table('collections').select('*').execute()
+        collections = collections_result.data if collections_result.data else []
+        
+        # Calculate stats
+        total_collections = len(collections)
+        active_collections = len([c for c in collections if c.get('is_visible', True)])
+        synced_collections = len([c for c in collections if c.get('shopify_collection_id')])
+        
+        # Get collections with products
+        collections_with_products = []
+        for collection in collections:
+            if collection.get('products_count', 0) > 0:
+                collections_with_products.append(collection)
+        
+        return jsonify({
+            'total_collections': total_collections,
+            'active_collections': active_collections,
+            'synced_collections': synced_collections,
+            'collections_with_products': len(collections_with_products),
+            'recent_collections': collections[:5],  # Last 5 collections
+            'top_collections': sorted(collections, key=lambda x: x.get('products_count', 0), reverse=True)[:5]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching collections summary: {str(e)}")
+        return jsonify({
+            'total_collections': 0,
+            'active_collections': 0,
+            'synced_collections': 0,
+            'collections_with_products': 0,
+            'recent_collections': [],
+            'top_collections': []
         }), 200
