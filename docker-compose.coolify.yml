@@ -59,6 +59,7 @@ services:
     restart: unless-stopped
     labels:
       - "coolify.managed=true"
+      - "coolify.type=worker"
 
   redis:
     image: redis:7-alpine
@@ -74,6 +75,7 @@ services:
     restart: unless-stopped
     labels:
       - "coolify.managed=true"
+      - "coolify.type=database"
 
   celery:
     build:
@@ -100,6 +102,7 @@ services:
     restart: unless-stopped
     labels:
       - "coolify.managed=true"
+      - "coolify.type=worker"
 
 volumes:
   backend-data:
