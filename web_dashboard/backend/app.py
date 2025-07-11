@@ -430,6 +430,87 @@ def login():
         app.logger.warning(f"Failed login attempt for: {data['email']} - {str(e)}")
         return jsonify({"message": "Invalid credentials"}), 401
 
+@app.route("/api/auth/signup", methods=["POST"])
+def signup():
+    """Handle user registration with Supabase."""
+    try:
+        data = request.get_json()
+        
+        # Validate input
+        if not data or 'email' not in data or 'password' not in data:
+            return jsonify({"message": "Email and password are required"}), 400
+            
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        
+        # Basic validation
+        if not email or '@' not in email:
+            return jsonify({"message": "Invalid email address"}), 400
+            
+        if len(password) < 6:
+            return jsonify({"message": "Password must be at least 6 characters long"}), 400
+        
+        # Optional fields
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        
+        # Register with Supabase
+        result = auth_service.sign_up(email, password, first_name=first_name, last_name=last_name)
+        
+        # Create local user record
+        with db_session_scope() as session:
+            user_repo = UserRepository(session)
+            
+            # Check if user already exists locally
+            existing_user = user_repo.get_by_email(email)
+            if existing_user:
+                return jsonify({"message": "User already exists"}), 409
+            
+            # Create new user
+            user = user_repo.create_user(
+                email=email,
+                password="",  # No password stored locally
+                first_name=first_name,
+                last_name=last_name,
+                supabase_id=result["user"]["id"]
+            )
+            session.commit()
+            
+            app.logger.info(f"New user registered: {email}")
+            
+            # Return success with tokens if available
+            response_data = {
+                "message": "Registration successful",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "is_admin": user.is_admin
+                }
+            }
+            
+            # Include session tokens if available
+            if result.get("session"):
+                response_data["access_token"] = result["session"]["access_token"]
+                response_data["refresh_token"] = result["session"]["refresh_token"]
+            
+            return jsonify(response_data), 201
+            
+    except Exception as e:
+        app.logger.error(f"Registration error for {data.get('email', 'unknown')}: {str(e)}")
+        
+        # Check for specific Supabase errors
+        error_message = str(e).lower()
+        if "already registered" in error_message or "already exists" in error_message:
+            return jsonify({"message": "User already exists"}), 409
+        elif "invalid email" in error_message:
+            return jsonify({"message": "Invalid email address"}), 400
+        elif "weak password" in error_message:
+            return jsonify({"message": "Password is too weak"}), 400
+        else:
+            return jsonify({"message": "Registration failed. Please try again."}), 500
+
 @app.route("/api/auth/me", methods=["GET"])
 @supabase_jwt_required
 def get_current_user():
