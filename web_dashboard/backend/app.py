@@ -1567,6 +1567,210 @@ def get_websocket_status():
         logger.error(f"Error getting WebSocket status: {e}")
         return jsonify({'error': str(e)}), 500
 
+# Analytics and Reporting Endpoints
+from analytics_service import analytics_service, ReportPeriod
+
+@app.route('/api/analytics/metrics/real-time', methods=['GET'])
+@supabase_jwt_required
+def get_real_time_metrics():
+    """Get real-time sync metrics."""
+    try:
+        metrics = analytics_service.get_real_time_metrics()
+        return jsonify({
+            'status': 'success',
+            'metrics': metrics
+        })
+    except Exception as e:
+        logger.error(f"Error getting real-time metrics: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/reports/<period>', methods=['GET'])
+@supabase_jwt_required
+def generate_analytics_report(period):
+    """Generate analytics report for specified period."""
+    try:
+        # Validate period
+        try:
+            report_period = ReportPeriod(period)
+        except ValueError:
+            return jsonify({'error': 'Invalid report period'}), 400
+        
+        # Handle custom period
+        start_time = None
+        end_time = None
+        if report_period == ReportPeriod.CUSTOM:
+            start_time_str = request.args.get('start_time')
+            end_time_str = request.args.get('end_time')
+            
+            if not start_time_str or not end_time_str:
+                return jsonify({'error': 'Custom period requires start_time and end_time parameters'}), 400
+            
+            try:
+                start_time = datetime.fromisoformat(start_time_str)
+                end_time = datetime.fromisoformat(end_time_str)
+            except ValueError:
+                return jsonify({'error': 'Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM:SS)'}), 400
+        
+        # Generate report
+        report = analytics_service.generate_report(report_period, start_time, end_time)
+        
+        # Convert report to dict for JSON response
+        report_dict = {
+            'period': report.period.value,
+            'start_time': report.start_time.isoformat(),
+            'end_time': report.end_time.isoformat(),
+            'total_operations': report.total_operations,
+            'successful_operations': report.successful_operations,
+            'failed_operations': report.failed_operations,
+            'avg_duration': report.avg_duration,
+            'total_items_processed': report.total_items_processed,
+            'error_rate': report.error_rate,
+            'throughput_per_hour': report.throughput_per_hour,
+            'top_errors': report.top_errors,
+            'performance_trends': report.performance_trends,
+            'resource_usage': report.resource_usage,
+            'conflict_stats': report.conflict_stats,
+            'recommendations': report.recommendations
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'report': report_dict
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating analytics report: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/track/sync-start', methods=['POST'])
+@supabase_jwt_required
+def track_sync_start():
+    """Track the start of a sync operation."""
+    try:
+        data = request.get_json()
+        
+        operation_id = data.get('operation_id')
+        operation_type = data.get('operation_type')
+        items_count = data.get('items_count', 0)
+        metadata = data.get('metadata', {})
+        
+        if not operation_id or not operation_type:
+            return jsonify({'error': 'operation_id and operation_type are required'}), 400
+        
+        analytics_service.track_sync_start(operation_id, operation_type, items_count, metadata)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Sync start tracked successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error tracking sync start: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/track/sync-progress', methods=['POST'])
+@supabase_jwt_required
+def track_sync_progress():
+    """Track progress of a sync operation."""
+    try:
+        data = request.get_json()
+        
+        operation_id = data.get('operation_id')
+        items_processed = data.get('items_processed', 0)
+        current_throughput = data.get('current_throughput', 0.0)
+        errors_count = data.get('errors_count', 0)
+        
+        if not operation_id:
+            return jsonify({'error': 'operation_id is required'}), 400
+        
+        analytics_service.track_sync_progress(operation_id, items_processed, current_throughput, errors_count)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Sync progress tracked successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error tracking sync progress: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/track/sync-completion', methods=['POST'])
+@supabase_jwt_required
+def track_sync_completion():
+    """Track completion of a sync operation."""
+    try:
+        data = request.get_json()
+        
+        operation_id = data.get('operation_id')
+        success = data.get('success', False)
+        total_items = data.get('total_items', 0)
+        duration = data.get('duration', 0.0)
+        errors = data.get('errors', [])
+        
+        if not operation_id:
+            return jsonify({'error': 'operation_id is required'}), 400
+        
+        analytics_service.track_sync_completion(operation_id, success, total_items, duration, errors)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Sync completion tracked successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error tracking sync completion: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/track/conflicts', methods=['POST'])
+@supabase_jwt_required
+def track_conflicts():
+    """Track conflict detection metrics."""
+    try:
+        data = request.get_json()
+        
+        operation_id = data.get('operation_id')
+        conflicts_detected = data.get('conflicts_detected', 0)
+        auto_resolved = data.get('auto_resolved', 0)
+        manual_resolution_needed = data.get('manual_resolution_needed', 0)
+        
+        if not operation_id:
+            return jsonify({'error': 'operation_id is required'}), 400
+        
+        analytics_service.track_conflict_detection(
+            operation_id, conflicts_detected, auto_resolved, manual_resolution_needed
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Conflict metrics tracked successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error tracking conflicts: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/cleanup', methods=['POST'])
+@supabase_jwt_required
+def cleanup_analytics():
+    """Clean up old analytics data."""
+    try:
+        data = request.get_json() or {}
+        days_to_keep = data.get('days_to_keep', 7)
+        
+        if days_to_keep < 1:
+            return jsonify({'error': 'days_to_keep must be at least 1'}), 400
+        
+        analytics_service.cleanup_old_metrics(days_to_keep)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Analytics cleanup completed. Kept {days_to_keep} days of data.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error cleaning up analytics: {e}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == "__main__":
     # Run with SocketIO
     socketio.run(app, debug=True, port=3560, allow_unsafe_werkzeug=True)
