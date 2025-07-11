@@ -100,7 +100,7 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
       try {
         data = await apiClient.get('/shopify/test-connection');
         setConnectionStatus('connected');
-        setShopInfo(data.shop);
+        setShopInfo((data as any).shop);
       } catch (error: any) {
         // If auth fails, try debug endpoint (temporary)
         if (error.message?.includes('401')) {
@@ -130,7 +130,7 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
 
   const loadSyncStatus = async () => {
     try {
-      const data = await apiClient.get('/shopify/products/sync-status');
+      const data: any = await apiClient.get('/shopify/products/sync-status');
       setStatistics(data.statistics);
     } catch (error) {
       console.error('Error loading sync status:', error);
@@ -148,7 +148,7 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
         url += '&sync_status=not_synced';
       }
 
-      const data = await apiClient.get(url);
+      const data: any = await apiClient.get(url);
       setProducts(data.products);
       setTotalPages(data.pagination.total_pages);
     } catch (error) {
@@ -179,7 +179,7 @@ export function ShopifyProductSyncManager({ className }: ShopifyProductSyncManag
         requestBody.resume_cursor = resumeCursor;
       }
       
-      const data = await apiClient.post('/shopify/products/sync', requestBody);
+      const data: any = await apiClient.post('/shopify/products/sync', requestBody);
       setLastSyncResult(data.results);
       
       // Handle rate limiting

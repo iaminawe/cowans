@@ -101,7 +101,7 @@ export function ProductsTable({
         sort_order: sortOrder
       };
       
-      const data = await apiClient.get(`/products?${new URLSearchParams(params as any)}`);
+      const data: any = await apiClient.get(`/products?${new URLSearchParams(params as any)}`);
       setProducts(data.products);
       setTotalProducts(data.total);
     } catch (error: any) {

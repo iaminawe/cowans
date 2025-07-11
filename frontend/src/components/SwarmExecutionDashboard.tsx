@@ -200,7 +200,7 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
 
   const loadCategoriesFromAPI = async () => {
     try {
-      const data = await apiClient.get('/categories');
+      const data: any = await apiClient.get('/categories');
       const apiCategories: CategoryData[] = data.categories.map((category: any) => ({
         id: category.id.toString(),
         name: category.name,
@@ -218,7 +218,7 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
 
   const loadIconsFromAPI = async () => {
     try {
-      const data = await apiClient.get('/icons?limit=100');
+      const data: any = await apiClient.get('/icons?limit=100');
       const apiIcons: GeneratedIcon[] = data.icons.map((icon: any) => ({
         id: icon.id.toString(),
         categoryId: icon.category_id.toString(),
@@ -245,7 +245,7 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
   const loadShopifyCollections = async () => {
     try {
       // Load collections from our database (categories with Shopify integration)
-      const data = await apiClient.get('/collections');
+      const data: any = await apiClient.get('/collections');
       
       // Convert to ShopifyCollection format for the ShopifyCollectionManager
       const collections: ShopifyCollection[] = data.collections
@@ -402,7 +402,7 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
         const numericId = parseInt(categoryId.replace(/\D/g, '')) || 999;
         const iconUrl = `/api/icons/categories/${numericId}/icon`;
         const newIcon: GeneratedIcon = {
-          id: result.icon.id,
+          id: (result as any).icon.id,
           categoryId: categoryId,
           categoryName: category.name,
           name: category.name + ' Icon',
@@ -411,7 +411,7 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
           format: 'png',
           size: config.size || '128',
           style: config.style || 'modern',
-          generatedAt: result.icon.created_at,
+          generatedAt: (result as any).icon.created_at,
           tags: category.keywords || [],
           colorScheme: config.colorScheme || 'brand',
           isFavorite: false
@@ -505,7 +505,7 @@ export function SwarmExecutionDashboard({ className }: SwarmExecutionDashboardPr
       const result = await apiClient.post('/icons/bulk', { icon_ids: iconIds.map(id => parseInt(id)) });
       setGeneratedIcons(prev => prev.filter(icon => !iconIds.includes(icon.id)));
       setSelectedIcons([]);
-      console.log(`${result.deleted_count} icons deleted successfully`);
+      console.log(`${(result as any).deleted_count} icons deleted successfully`);
       
       // Refresh from API to ensure consistency
       loadIconsFromAPI();
