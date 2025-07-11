@@ -9,12 +9,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
+interface ProductStats {
+  totalProducts: number;
+  shopifySynced: number;
+  stagingChanges: number;
+}
+
 export function ProductsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<ProductStats>({
     totalProducts: 0,
     shopifySynced: 0,
     stagingChanges: 0
@@ -30,9 +36,15 @@ export function ProductsDashboard() {
   const fetchDashboardStats = async () => {
     try {
       const data = await apiClient.get('/dashboard/products/enhanced-stats');
-      setStats(data);
+      if (data && typeof data === 'object') {
+        setStats(data as ProductStats);
+      } else {
+        // Keep default stats if API returns invalid data
+        console.warn('Invalid stats data received:', data);
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
+      // Keep default stats on error
     } finally {
       setLoading(false);
     }
@@ -109,7 +121,7 @@ export function ProductsDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
-                    {loading ? '...' : stats.totalProducts.toLocaleString()}
+                    {loading ? '...' : (stats?.totalProducts || 0).toLocaleString()}
                   </div>
                   <p className="text-sm text-muted-foreground">Active products</p>
                 </div>
@@ -127,10 +139,10 @@ export function ProductsDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
-                    {loading ? '...' : stats.shopifySynced.toLocaleString()}
+                    {loading ? '...' : (stats?.shopifySynced || 0).toLocaleString()}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {loading ? '...' : `${Math.round((stats.shopifySynced / stats.totalProducts) * 100)}% sync rate`}
+                    {loading ? '...' : `${Math.round(((stats?.shopifySynced || 0) / (stats?.totalProducts || 1)) * 100)}% sync rate`}
                   </p>
                 </div>
               </div>
@@ -147,10 +159,10 @@ export function ProductsDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
-                    {loading ? '...' : stats.stagingChanges}
+                    {loading ? '...' : (stats?.stagingChanges || 0)}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {stats.stagingChanges > 0 ? 'Pending changes' : 'All up to date'}
+                    {(stats?.stagingChanges || 0) > 0 ? 'Pending changes' : 'All up to date'}
                   </p>
                 </div>
               </div>

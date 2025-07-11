@@ -110,9 +110,9 @@ export function ProductAnalyticsLive() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProducts.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(stats?.totalProducts || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeProducts.toLocaleString()} active
+              {(stats?.activeProducts || 0).toLocaleString()} active
             </p>
           </CardContent>
         </Card>
@@ -170,7 +170,7 @@ export function ProductAnalyticsLive() {
                     </span>
                   </div>
                   <Progress 
-                    value={(category.count / stats.totalProducts) * 100} 
+                    value={(category.count / (stats?.totalProducts || 1)) * 100} 
                     className="h-2"
                   />
                 </div>
@@ -199,7 +199,7 @@ export function ProductAnalyticsLive() {
                     <span className="text-sm font-medium">{range.count}</span>
                     <div className="w-24">
                       <Progress 
-                        value={(range.count / stats.totalProducts) * 100} 
+                        value={(range.count / (stats?.totalProducts || 1)) * 100} 
                         className="h-2"
                       />
                     </div>
