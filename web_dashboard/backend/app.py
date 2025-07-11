@@ -71,6 +71,9 @@ from collections_supabase import collections_bp
 # Use Supabase version instead of SQLite version
 # from products_batch_api import products_batch_bp
 from products_batch_supabase import products_batch_bp
+# Use Supabase version instead of SQLite version
+# from products_api import products_bp
+from products_supabase import products_bp
 from batch_api import batch_bp
 from parallel_sync_api import parallel_sync_bp
 # Use Supabase version instead of SQLite version
@@ -152,6 +155,7 @@ app.register_blueprint(shopify_sync_down_bp)
 app.register_blueprint(xorosoft_bp)
 app.register_blueprint(collections_bp)
 app.register_blueprint(products_batch_bp)
+app.register_blueprint(products_bp)
 app.register_blueprint(batch_bp)
 app.register_blueprint(parallel_sync_bp)
 app.register_blueprint(categories_bp)
@@ -987,17 +991,7 @@ def get_sync_status():
         "sync_message": "No sync in progress"
     })
 
-@app.route("/api/products", methods=["GET"])
-@supabase_jwt_required
-def get_products():
-    """Get products from Supabase."""
-    try:
-        supabase_db = get_supabase_db()
-        result = supabase_db.client.table('products').select('*').limit(100).execute()
-        return jsonify({"products": result.data if result.data else []})
-    except Exception as e:
-        app.logger.error(f"Error fetching products: {e}")
-        return jsonify({"products": []}), 200
+# Products endpoints now handled by products_supabase.py
 
 @app.route("/api/batch/operations", methods=["GET"])
 @supabase_jwt_required
