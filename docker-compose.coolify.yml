@@ -1,7 +1,7 @@
 version: '3.8'
 
-# Coolify v4 configuration - Frontend as primary application
-# Backend, Redis, and Celery are internal services only
+# Coolify v4 configuration - Single domain approach
+# Only frontend gets external domain, others are internal
 
 services:
   frontend:
