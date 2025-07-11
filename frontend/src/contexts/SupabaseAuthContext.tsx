@@ -119,33 +119,51 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     clearError();
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // Use our backend API for signup
+      const response = await apiClient.post('/auth/signup', {
         email,
         password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
-        },
+        first_name: firstName,
+        last_name: lastName,
       });
-
-      if (error) throw error;
-
-      if (data.user) {
-        // If email confirmation is required, show message
-        if (!data.session) {
-          setError('Please check your email to confirm your account');
-          setLoading(false);
-          return;
+      
+      // If we get tokens back, we can sign in immediately
+      if (response.access_token && response.refresh_token) {
+        // Set the auth token for future API calls
+        apiClient.setAuthToken(response.access_token);
+        
+        // Get the session from Supabase using the tokens
+        const { data: { session }, error: sessionError } = await supabase.auth.setSession({
+          access_token: response.access_token,
+          refresh_token: response.refresh_token,
+        });
+        
+        if (sessionError) throw sessionError;
+        if (!session) throw new Error('Failed to establish session');
+        
+        // Sync with local user - we already have localUser from response
+        if (response.user) {
+          const localUser: LocalUser = {
+            id: response.user.id,
+            email: response.user.email,
+            firstName: response.user.first_name || '',
+            lastName: response.user.last_name || '',
+            isAdmin: response.user.is_admin || false,
+          };
+          setAuthState(session.user, session, localUser);
+        } else {
+          // Fallback to sync if user not in response
+          const localUser = await syncLocalUser(session);
+          setAuthState(session.user, session, localUser);
         }
-
-        // Sync with backend
-        const localUser = data.session ? await syncLocalUser(data.session) : null;
-        setAuthState(data.user, data.session, localUser);
+      } else {
+        // Registration successful but no auto-login (might need email confirmation)
+        setError('Registration successful! Please check your email to confirm your account.');
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      const message = error instanceof AuthError ? error.message : 'Sign up failed';
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message || 'Sign up failed';
       setError(message);
       throw error;
     }
