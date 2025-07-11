@@ -1,31 +1,9 @@
 version: '3.8'
 
-# Coolify v4 configuration - Single domain approach
-# Only frontend gets external domain, others are internal
+# Backend-first approach - backend serves both API and frontend
+# Frontend service was causing "no available server" in Traefik
 
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - REACT_APP_API_URL=/api
-    environment:
-      - NODE_ENV=production
-      - REACT_APP_API_URL=/api
-    expose:
-      - "80"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    restart: unless-stopped
-    labels:
-      - "coolify.managed=true"
-      - "coolify.type=application"
-
   backend:
     build:
       context: .
@@ -43,7 +21,6 @@ services:
       - FTP_HOST=${FTP_HOST}
       - FTP_USERNAME=${FTP_USERNAME}
       - FTP_PASSWORD=${FTP_PASSWORD}
-      - REDIS_URL=redis://redis:6379/0
       - PYTHONUNBUFFERED=1
     volumes:
       - backend-data:/app/data
@@ -59,7 +36,7 @@ services:
     restart: unless-stopped
     labels:
       - "coolify.managed=true"
-      - "coolify.type=worker"
+      - "coolify.type=application"
 
   redis:
     image: redis:7-alpine

@@ -1,0 +1,36 @@
+version: '3.8'
+
+# Backend-only deployment - serves both API and frontend fallback
+# Backend already has fallback route to serve React app
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./web_dashboard/backend/Dockerfile
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SHOPIFY_SHOP_URL=${SHOPIFY_SHOP_URL}
+      - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FTP_HOST=${FTP_HOST}
+      - FTP_USERNAME=${FTP_USERNAME}
+      - FTP_PASSWORD=${FTP_PASSWORD}
+      - PYTHONUNBUFFERED=1
+    expose:
+      - "3560"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3560/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+      - "coolify.type=application"
