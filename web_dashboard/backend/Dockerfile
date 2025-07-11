@@ -23,6 +23,9 @@ COPY ./web_dashboard/backend .
 # Copy scripts directory
 COPY ./scripts /app/scripts
 
+# Copy frontend build files for serving
+COPY ./frontend/build /app/frontend/build
+
 # Create a non-root user first
 RUN useradd -m -u 1000 appuser
 
