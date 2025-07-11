@@ -38,10 +38,13 @@ export function ShopifyCollectionManager({
   const [shopifyConnected, setShopifyConnected] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<ShopifyCollection | null>(null);
+  const [syncingCollections, setSyncingCollections] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
 
   useEffect(() => {
     loadCollections();
     checkShopifyConnection();
+    loadSyncStatus();
   }, []);
 
   const checkShopifyConnection = async () => {
@@ -123,6 +126,59 @@ export function ShopifyCollectionManager({
     }
   };
 
+  const loadSyncStatus = async () => {
+    try {
+      const response = await fetch('/api/shopify/collections/sync-status', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStatus(data.sync_status);
+      }
+    } catch (error) {
+      console.error('Error loading sync status:', error);
+    }
+  };
+
+  const handleSyncCollections = async () => {
+    try {
+      setSyncingCollections(true);
+      setError(null);
+      
+      const response = await fetch('/api/shopify/collections/sync', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show success message
+        console.log('Collections sync completed:', data.results);
+        
+        // Refresh collections and sync status
+        await loadCollections();
+        await loadSyncStatus();
+        
+        // You might want to show a success toast here
+        setError(null);
+      } else {
+        setError(data.error || 'Failed to sync collections');
+      }
+    } catch (error: any) {
+      console.error('Error syncing collections:', error);
+      setError('Failed to sync collections from Shopify');
+    } finally {
+      setSyncingCollections(false);
+    }
+  };
+
   const collectionsWithoutIcons = collections?.filter(c => !c.has_icon) || [];
   const collectionsWithIcons = collections?.filter(c => c.has_icon) || [];
 
@@ -178,6 +234,15 @@ export function ShopifyCollectionManager({
               <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
               Refresh
             </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSyncCollections}
+              disabled={syncingCollections || !shopifyConnected}
+            >
+              <Download className={cn("h-4 w-4 mr-2", syncingCollections && "animate-spin")} />
+              {syncingCollections ? 'Syncing...' : 'Sync from Shopify'}
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -187,6 +252,30 @@ export function ShopifyCollectionManager({
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Sync Status */}
+        {syncStatus && (
+          <div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-900/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Download className="h-4 w-4 text-blue-600" />
+              <div className="font-medium">Sync Status</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="font-medium">Total Collections: {syncStatus.total_collections}</div>
+                <div className="text-muted-foreground">
+                  Synced from Shopify: {syncStatus.synced_collections}
+                </div>
+              </div>
+              <div>
+                <div className="font-medium">Local Collections: {syncStatus.local_collections}</div>
+                <div className="text-muted-foreground">
+                  Sync Rate: {syncStatus.sync_percentage?.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Summary Stats */}
