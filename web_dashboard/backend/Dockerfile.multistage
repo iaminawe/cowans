@@ -1,3 +1,20 @@
+# Multi-stage build - Frontend first
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend files
+COPY ./frontend/package*.json ./
+RUN npm ci
+
+COPY ./frontend .
+
+# Build frontend
+ARG REACT_APP_API_URL=/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+RUN npm run build
+
+# Backend stage
 FROM python:3.11-slim
 
 # Set working directory
@@ -23,9 +40,8 @@ COPY ./web_dashboard/backend .
 # Copy scripts directory
 COPY ./scripts /app/scripts
 
-# Copy frontend build files if they exist (optional for now)
-# Will be added in multi-stage build later
-# COPY ./frontend/build /app/frontend/build
+# Copy frontend build from builder stage
+COPY --from=frontend-builder /frontend/build /app/frontend/build
 
 # Create a non-root user first
 RUN useradd -m -u 1000 appuser
