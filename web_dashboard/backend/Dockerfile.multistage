@@ -9,7 +9,7 @@ RUN npm ci
 
 COPY ./frontend .
 
-# Ensure required directories exist
+# Ensure required directories and files exist
 RUN mkdir -p src/lib public
 
 # Create utils.ts if it doesn't exist (fallback)
@@ -23,13 +23,30 @@ export function cn(...inputs: ClassValue[]) { \
     echo "WARNING: Created src/lib/utils.ts as it was missing"; \
     fi
 
-# Debug: List files to verify structure
-RUN ls -la && ls -la public/ || echo "public directory not found"
+# Ensure index.html exists
+RUN if [ ! -f "public/index.html" ]; then \
+    echo "ERROR: public/index.html is missing!"; \
+    ls -la public/ || echo "public directory contents not found"; \
+    exit 1; \
+    fi
+
+# Debug: Show webpack config and file structure
+RUN echo "=== Webpack config ===" && \
+    cat webpack.config.js | grep -A2 -B2 "template:" && \
+    echo "=== Current directory ===" && \
+    pwd && \
+    echo "=== Directory structure ===" && \
+    ls -la && \
+    echo "=== Public directory ===" && \
+    ls -la public/
 
 # Build frontend
 ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
-RUN npm run build
+ENV NODE_ENV=production
+
+# Try build with Docker-specific config
+RUN npm run build:docker
 
 # Backend stage
 FROM python:3.11-slim
