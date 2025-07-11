@@ -280,21 +280,58 @@ def setup_logging():
 
 setup_logging()
 
-# Initialize database on startup (no table creation in production)
+# Initialize database on startup with enhanced containerized environment support
 try:
-    # In production with Supabase, tables should already exist
-    create_tables = os.getenv('FLASK_ENV') != 'production'
+    # Determine database type and environment
+    database_url = os.getenv('DATABASE_URL', '')
+    is_production = os.getenv('FLASK_ENV') == 'production'
+    is_supabase = 'supabase' in database_url or os.getenv('SUPABASE_URL')
+    is_sqlite = database_url.startswith('sqlite') or not database_url
+    
+    app.logger.info(f"Database initialization: production={is_production}, supabase={is_supabase}, sqlite={is_sqlite}")
+    
+    # For containerized SQLite environments, always create tables if they don't exist
+    if is_sqlite and not is_production:
+        create_tables = True
+        app.logger.info("SQLite in development/container: enabling table creation")
+    elif is_sqlite and is_production:
+        # In production SQLite (containerized), create tables if database doesn't exist
+        import os.path
+        db_path = database_url.replace('sqlite:///', '')
+        create_tables = not os.path.exists(db_path)
+        app.logger.info(f"SQLite in production: database exists={os.path.exists(db_path)}, creating tables={create_tables}")
+    else:
+        # Supabase or other databases - assume tables exist in production
+        create_tables = not is_production
+        app.logger.info(f"Database type: {database_url.split('://')[0]}, creating tables={create_tables}")
+    
     init_database(create_tables=create_tables)
     
-    # Only seed data in development environments
-    if os.getenv('FLASK_ENV') != 'production':
-        from database import DatabaseUtils
-        DatabaseUtils.seed_initial_data()
+    # Seed initial data for development or fresh SQLite databases
+    if create_tables or (not is_production and not is_supabase):
+        try:
+            from database import DatabaseUtils
+            DatabaseUtils.seed_initial_data()
+            app.logger.info("Initial data seeded successfully")
+        except Exception as seed_error:
+            app.logger.warning(f"Failed to seed initial data: {seed_error}")
+    
+    # Verify database health
+    from database import database_health_check
+    health = database_health_check()
+    if health.get('status') == 'healthy':
+        app.logger.info("Database health check passed")
+    else:
+        app.logger.error(f"Database health check failed: {health}")
         
-    # Database initialization logging is handled by DatabaseManager
 except Exception as e:
     app.logger.error(f"Failed to initialize database: {e}")
-    # Continue anyway for development
+    # In containerized environments, this should be fatal
+    if os.getenv('FLASK_ENV') == 'production':
+        app.logger.critical("Database initialization failed in production - exiting")
+        raise
+    else:
+        app.logger.warning("Database initialization failed in development - continuing")
 
 # Schemas
 login_schema = LoginSchema()

@@ -32,10 +32,20 @@ class DatabaseManager:
         self._scoped_session = None
         
     def _get_database_url(self) -> str:
-        """Get database URL from configuration."""
+        """Get database URL from configuration with enhanced containerized environment support."""
         # Check for DATABASE_URL environment variable first
         database_url = os.getenv('DATABASE_URL')
         if database_url:
+            # Handle containerized paths - ensure directory exists
+            if database_url.startswith('sqlite'):
+                db_path = database_url.replace('sqlite:///', '')
+                db_dir = os.path.dirname(db_path)
+                if db_dir and not os.path.exists(db_dir):
+                    try:
+                        os.makedirs(db_dir, exist_ok=True)
+                        logger.info(f"Created database directory: {db_dir}")
+                    except Exception as e:
+                        logger.error(f"Failed to create database directory {db_dir}: {e}")
             return database_url
             
         # Check for Supabase configuration
@@ -55,17 +65,37 @@ class DatabaseManager:
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
             return Config.DATABASE_URL
         
-        # Default to SQLite database in the backend directory
-        db_path = os.path.join(os.path.dirname(__file__), 'database.db')
+        # Default to SQLite database - prefer containerized location if available
+        if os.path.exists('/app/data'):
+            # Containerized environment
+            db_path = '/app/data/database.db'
+        else:
+            # Development environment
+            db_path = os.path.join(os.path.dirname(__file__), 'database.db')
+        
+        # Ensure directory exists
+        db_dir = os.path.dirname(db_path)
+        if not os.path.exists(db_dir):
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+                logger.info(f"Created database directory: {db_dir}")
+            except Exception as e:
+                logger.error(f"Failed to create database directory {db_dir}: {e}")
+        
         return f"sqlite:///{db_path}"
     
     def initialize(self, create_tables: bool = False) -> None:
-        """Initialize database connection. Tables should already exist in Supabase."""
+        """Initialize database connection with enhanced containerized environment support."""
         try:
             # Create engine with appropriate settings
             if self.database_url.startswith('sqlite'):
-                # SQLite-specific settings (deprecated, should use Supabase)
-                logger.warning("SQLite is deprecated. Please use Supabase PostgreSQL.")
+                # SQLite-specific settings with containerized environment support
+                is_containerized = os.path.exists('/app/data')
+                if is_containerized:
+                    logger.info("SQLite in containerized environment detected")
+                else:
+                    logger.info("SQLite in development environment")
+                    
                 self.engine = create_engine(
                     self.database_url,
                     echo=False,  # Set to True for SQL debugging
@@ -84,6 +114,8 @@ class DatabaseManager:
                     cursor.execute("PRAGMA foreign_keys=ON")
                     cursor.execute("PRAGMA journal_mode=WAL")  # Enable WAL mode for better concurrency
                     cursor.execute("PRAGMA synchronous=NORMAL")  # Balance between safety and performance
+                    cursor.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
+                    cursor.execute("PRAGMA cache_size=10000")  # Increase cache size for better performance
                     cursor.close()
                     
             else:
@@ -108,14 +140,31 @@ class DatabaseManager:
             # Create scoped session for thread-safe access
             self._scoped_session = scoped_session(self.session_factory)
             
-            # Only create tables if explicitly requested (for development)
+            # Test connection immediately to catch issues early
+            try:
+                with self.session_scope() as session:
+                    from sqlalchemy import text
+                    result = session.execute(text("SELECT 1")).scalar()
+                    if result == 1:
+                        logger.info("Database connection test successful")
+                    else:
+                        logger.error("Database connection test failed")
+            except Exception as conn_error:
+                logger.error(f"Database connection test failed: {conn_error}")
+                raise
+            
+            # Only create tables if explicitly requested
             if create_tables:
-                logger.warning("Creating tables - this should only be done in development!")
+                logger.info("Creating database tables...")
                 self.create_tables()
                 
             # Only log database URL once per process (avoid spam in multi-worker setups)
             if not hasattr(self, '_logged_init'):
-                logger.info(f"Database initialized successfully: {self.database_url}")
+                # Mask sensitive information in logs
+                safe_url = self.database_url
+                if '@' in safe_url:
+                    safe_url = safe_url.split('@')[0].split('://')[0] + '://***@' + safe_url.split('@')[1]
+                logger.info(f"Database initialized successfully: {safe_url}")
                 self._logged_init = True
             
         except Exception as e:
