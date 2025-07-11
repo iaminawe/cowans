@@ -7,7 +7,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./web_dashboard/backend/Dockerfile
+      dockerfile: ./web_dashboard/backend/Dockerfile.multistage
     environment:
       - FLASK_ENV=production
       - DATABASE_URL=${DATABASE_URL}

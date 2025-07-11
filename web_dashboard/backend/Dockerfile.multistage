@@ -9,10 +9,24 @@ RUN npm ci
 
 COPY ./frontend .
 
+# Ensure src/lib directory exists and has utils.ts
+RUN mkdir -p src/lib
+
+# Create utils.ts if it doesn't exist (fallback)
+RUN if [ ! -f "src/lib/utils.ts" ]; then \
+    echo 'import { type ClassValue, clsx } from "clsx"; \
+import { twMerge } from "tailwind-merge"; \
+\
+export function cn(...inputs: ClassValue[]) { \
+  return twMerge(clsx(inputs)); \
+}' > src/lib/utils.ts; \
+    echo "WARNING: Created src/lib/utils.ts as it was missing"; \
+    fi
+
 # Build frontend
 ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
-RUN npm run build
+RUN npm run build:verbose || npm run build
 
 # Backend stage
 FROM python:3.11-slim
