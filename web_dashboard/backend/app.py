@@ -60,14 +60,22 @@ from models import Product, Category, Collection, ProductStatus, IconStatus, Job
 
 # Import API blueprints
 from import_api import import_bp
-from shopify_sync_api import shopify_sync_bp
+# Use Supabase version instead of SQLite version
+# from shopify_sync_api import shopify_sync_bp
+from shopify_sync_supabase import shopify_sync_bp
 from shopify_sync_down_api import shopify_sync_down_bp
 from xorosoft_api import xorosoft_bp
-from collections_api import collections_bp
-from products_batch_api import products_batch_bp
+# Use Supabase version instead of SQLite version
+# from collections_api import collections_bp
+from collections_supabase import collections_bp
+# Use Supabase version instead of SQLite version
+# from products_batch_api import products_batch_bp
+from products_batch_supabase import products_batch_bp
 from batch_api import batch_bp
 from parallel_sync_api import parallel_sync_bp
-from categories_api import categories_bp
+# Use Supabase version instead of SQLite version
+# from categories_api import categories_bp
+from categories_supabase import categories_bp
 from admin_api import admin_bp
 # Use Supabase version instead of SQLite version
 # from dashboard_stats_api import dashboard_stats_bp
@@ -1000,28 +1008,7 @@ def get_batch_operations():
         "total": 0
     })
 
-@app.route("/api/collections", methods=["GET"])
-@supabase_jwt_required
-def get_collections():
-    """Get collections from Supabase."""
-    try:
-        supabase_db = get_supabase_db()
-        result = supabase_db.client.table('collections').select('*').limit(100).execute()
-        return jsonify({"collections": result.data if result.data else []})
-    except Exception as e:
-        app.logger.error(f"Error fetching collections: {e}")
-        return jsonify({"collections": []}), 200
-
-@app.route("/api/collections/summary", methods=["GET"])
-@supabase_jwt_required
-def get_collections_summary():
-    """Get collections summary."""
-    return jsonify({
-        "total_collections": 0,
-        "synced_collections": 0,
-        "pending_sync": 0,
-        "collection_stats": []
-    })
+# Collections endpoints now handled by collections_supabase.py
 
 @app.route("/api/analytics/stats", methods=["GET"])
 @supabase_jwt_required
@@ -1035,25 +1022,13 @@ def get_analytics_stats():
         "period": "last_30_days"
     })
 
-@app.route("/api/categories/", methods=["GET"])
-@supabase_jwt_required
-def get_categories():
-    """Get categories - redirect without trailing slash."""
-    return redirect('/api/categories', code=301)
+# Categories endpoints now handled by categories_supabase.py
 
-@app.route("/api/categories", methods=["GET"])
-@supabase_jwt_required
-def get_categories_no_slash():
-    """Get categories from Supabase."""
-    try:
-        supabase_db = get_supabase_db()
-        # Check if categories table exists, otherwise return empty
-        result = supabase_db.client.table('categories').select('*').execute()
-        return jsonify({"categories": result.data if result.data else []})
-    except Exception as e:
-        app.logger.error(f"Error fetching categories: {e}")
-        # Return empty array instead of error to prevent frontend crashes
-        return jsonify({"categories": []}), 200
+# Special case: Handle trailing slash redirect for categories
+@app.route("/api/categories/", methods=["GET"])
+def redirect_categories():
+    """Redirect /api/categories/ to /api/categories"""
+    return redirect('/api/categories', code=301)
 
 @app.route("/api/images/<path:filename>", methods=["GET"])
 def serve_generated_image(filename):
