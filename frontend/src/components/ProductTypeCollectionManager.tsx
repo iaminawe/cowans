@@ -142,12 +142,8 @@ export function ProductTypeCollectionManager({ className }: ProductTypeCollectio
         })
       );
 
-        console.log(`Generated AI suggestions for ${selectedTypes.length} product types`);
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to generate AI suggestions: ${errorData.message}`);
-      }
-    } catch (error) {
+      console.log(`Generated AI suggestions for ${selectedTypes.length} product types`);
+    } catch (error: any) {
       console.error('Error generating AI suggestions:', error);
       alert('Network error while generating AI suggestions');
     } finally {
