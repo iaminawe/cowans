@@ -39,7 +39,7 @@ class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
 
-  constructor(baseUrl: string = 'http://localhost:3560/api') {
+  constructor(baseUrl: string = process.env.REACT_APP_API_URL || '/api') {
     this.baseUrl = baseUrl;
     this.token = localStorage.getItem('auth_token');
     
