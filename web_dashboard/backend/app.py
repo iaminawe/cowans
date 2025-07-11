@@ -392,39 +392,22 @@ def login():
         # Authenticate with Supabase
         result = auth_service.sign_in(data["email"], data["password"])
         
-        # Sync user with local database
-        with db_session_scope() as session:
-            user_repo = UserRepository(session)
-            user = user_repo.get_by_email(data["email"])
-            
-            if not user:
-                # Create local user record
-                user = user_repo.create_user(
-                    email=data["email"],
-                    password="",  # No password stored locally
-                    first_name=result["user"].get("user_metadata", {}).get("first_name", ""),
-                    last_name=result["user"].get("user_metadata", {}).get("last_name", ""),
-                    supabase_id=result["user"]["id"]
-                )
-                session.commit()
-            elif not user.supabase_id:
-                # Update existing user with Supabase ID
-                user.supabase_id = result["user"]["id"]
-                session.commit()
-            
-            app.logger.info(f"User logged in: {user.email}")
-            
-            return jsonify({
-                "access_token": result["session"]["access_token"],
-                "refresh_token": result["session"]["refresh_token"],
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "is_admin": user.is_admin
-                }
-            })
+        app.logger.info(f"User logged in: {data['email']}")
+        
+        # Get user metadata from Supabase
+        user_metadata = result["user"].get("user_metadata", {})
+        
+        return jsonify({
+            "access_token": result["session"]["access_token"],
+            "refresh_token": result["session"]["refresh_token"],
+            "user": {
+                "id": result["user"]["id"],
+                "email": result["user"]["email"],
+                "first_name": user_metadata.get("first_name", ""),
+                "last_name": user_metadata.get("last_name", ""),
+                "is_admin": user_metadata.get("is_admin", False)
+            }
+        })
             
     except Exception as e:
         app.logger.warning(f"Failed login attempt for: {data['email']} - {str(e)}")
@@ -457,45 +440,26 @@ def signup():
         # Register with Supabase
         result = auth_service.sign_up(email, password, first_name=first_name, last_name=last_name)
         
-        # Create local user record
-        with db_session_scope() as session:
-            user_repo = UserRepository(session)
-            
-            # Check if user already exists locally
-            existing_user = user_repo.get_by_email(email)
-            if existing_user:
-                return jsonify({"message": "User already exists"}), 409
-            
-            # Create new user
-            user = user_repo.create_user(
-                email=email,
-                password="",  # No password stored locally
-                first_name=first_name,
-                last_name=last_name,
-                supabase_id=result["user"]["id"]
-            )
-            session.commit()
-            
-            app.logger.info(f"New user registered: {email}")
-            
-            # Return success with tokens if available
-            response_data = {
-                "message": "Registration successful",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "is_admin": user.is_admin
-                }
+        app.logger.info(f"New user registered: {email}")
+        
+        # Return success with tokens if available
+        response_data = {
+            "message": "Registration successful",
+            "user": {
+                "id": result["user"]["id"],
+                "email": result["user"]["email"],
+                "first_name": first_name,
+                "last_name": last_name,
+                "is_admin": False  # Default to non-admin
             }
-            
-            # Include session tokens if available
-            if result.get("session"):
-                response_data["access_token"] = result["session"]["access_token"]
-                response_data["refresh_token"] = result["session"]["refresh_token"]
-            
-            return jsonify(response_data), 201
+        }
+        
+        # Include session tokens if available
+        if result.get("session"):
+            response_data["access_token"] = result["session"]["access_token"]
+            response_data["refresh_token"] = result["session"]["refresh_token"]
+        
+        return jsonify(response_data), 201
             
     except Exception as e:
         app.logger.error(f"Registration error for {data.get('email', 'unknown')}: {str(e)}")
