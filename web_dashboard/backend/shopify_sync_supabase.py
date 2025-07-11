@@ -632,3 +632,231 @@ def get_sync_status():
     except Exception as e:
         logger.error(f"Error getting sync status: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@shopify_sync_bp.route('/collections/sync', methods=['POST'])
+@supabase_jwt_required
+def sync_collections_from_shopify():
+    """Sync collections from Shopify to Supabase."""
+    try:
+        # Get Shopify client
+        try:
+            shopify_client = get_shopify_client()
+        except ValueError as e:
+            logger.warning(f"Shopify not configured: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Shopify integration not configured'
+            }), 400
+        
+        supabase = get_supabase_db()
+        
+        logger.info("Starting collections sync from Shopify to Supabase")
+        
+        # GraphQL query to get all collections
+        collections_query = """
+        query GetCollections($first: Int!, $after: String) {
+          collections(first: $first, after: $after) {
+            edges {
+              node {
+                id
+                handle
+                title
+                description
+                image {
+                  url
+                  altText
+                }
+                productsCount
+                updatedAt
+                seo {
+                  title
+                  description
+                }
+                sortOrder
+                templateSuffix
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+        """
+        
+        # Paginate through all collections
+        all_collections = []
+        has_next_page = True
+        after = None
+        
+        while has_next_page:
+            variables = {'first': 50}
+            if after:
+                variables['after'] = after
+                
+            result = shopify_client.execute_graphql(collections_query, variables)
+            
+            if result.get('errors'):
+                logger.error(f"Shopify GraphQL errors: {result['errors']}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch collections from Shopify',
+                    'details': result['errors']
+                }), 500
+            
+            collections_data = result.get('data', {}).get('collections', {})
+            edges = collections_data.get('edges', [])
+            all_collections.extend([edge['node'] for edge in edges])
+            
+            page_info = collections_data.get('pageInfo', {})
+            has_next_page = page_info.get('hasNextPage', False)
+            after = page_info.get('endCursor')
+            
+            logger.info(f"Fetched {len(edges)} collections, total so far: {len(all_collections)}")
+        
+        logger.info(f"Fetched {len(all_collections)} collections from Shopify")
+        
+        # Sync collections to Supabase
+        synced_count = 0
+        updated_count = 0
+        error_count = 0
+        
+        for collection in all_collections:
+            try:
+                # Prepare collection data for Supabase (using existing column names)
+                collection_data = {
+                    'name': collection['title'],  # Use 'name' instead of 'title'
+                    'handle': collection['handle'],
+                    'description': collection.get('description', ''),
+                    'shopify_collection_id': collection['id'],
+                    'image_url': collection.get('image', {}).get('url') if collection.get('image') else None,
+                    'image_alt_text': collection.get('image', {}).get('altText') if collection.get('image') else None,
+                    'products_count': collection.get('productsCount', 0),
+                    'seo_title': collection.get('seo', {}).get('title', ''),
+                    'seo_description': collection.get('seo', {}).get('description', ''),
+                    'sort_order': str(collection.get('sortOrder', '')),  # Convert to string
+                    'template_suffix': collection.get('templateSuffix'),
+                    'shopify_synced_at': collection.get('updatedAt'),
+                    'shopify_sync_status': 'synced',
+                    'is_visible': True,
+                    'status': 'active',
+                    'published_scope': 'web',
+                    'updated_at': datetime.utcnow().isoformat()
+                }
+                
+                # Check if collection already exists
+                existing_result = supabase.client.table('collections')\
+                    .select('id, updated_at')\
+                    .eq('shopify_collection_id', collection['id'])\
+                    .execute()
+                
+                if existing_result.data:
+                    # Update existing collection
+                    collection_id = existing_result.data[0]['id']
+                    result = supabase.client.table('collections')\
+                        .update(collection_data)\
+                        .eq('id', collection_id)\
+                        .execute()
+                    
+                    if result.data:
+                        updated_count += 1
+                        logger.debug(f"Updated collection: {collection['title']}")
+                    else:
+                        error_count += 1
+                        logger.error(f"Failed to update collection: {collection['title']}")
+                else:
+                    # Insert new collection
+                    collection_data['created_at'] = datetime.utcnow().isoformat()
+                    result = supabase.client.table('collections')\
+                        .insert(collection_data)\
+                        .execute()
+                    
+                    if result.data:
+                        synced_count += 1
+                        logger.debug(f"Created new collection: {collection['title']}")
+                    else:
+                        error_count += 1
+                        logger.error(f"Failed to create collection: {collection['title']}")
+                
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error syncing collection {collection.get('title', 'Unknown')}: {str(e)}")
+        
+        total_processed = synced_count + updated_count + error_count
+        success_rate = ((synced_count + updated_count) / total_processed * 100) if total_processed > 0 else 0
+        
+        logger.info(f"Collections sync completed: {synced_count} created, {updated_count} updated, {error_count} errors")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Collections sync completed successfully',
+            'results': {
+                'total_collections': len(all_collections),
+                'new_collections': synced_count,
+                'updated_collections': updated_count,
+                'error_count': error_count,
+                'success_rate': round(success_rate, 2)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error syncing collections: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': 'Failed to sync collections',
+            'message': str(e)
+        }), 500
+
+@shopify_sync_bp.route('/collections/sync-status', methods=['GET'])
+@supabase_jwt_required
+def get_collections_sync_status():
+    """Get collections sync status."""
+    try:
+        supabase = get_supabase_db()
+        
+        # Get total collections in Supabase
+        total_result = supabase.client.table('collections').select('id', count='exact').execute()
+        total_collections = total_result.count if hasattr(total_result, 'count') else 0
+        
+        # Get synced collections (those with shopify_collection_id)
+        synced_result = supabase.client.table('collections')\
+            .select('id', count='exact')\
+            .not_.is_('shopify_collection_id', 'null')\
+            .execute()
+        synced_collections = synced_result.count if hasattr(synced_result, 'count') else 0
+        
+        # Get recent syncs
+        recent_result = supabase.client.table('collections')\
+            .select('name, shopify_synced_at')\
+            .not_.is_('shopify_synced_at', 'null')\
+            .order('shopify_synced_at', desc=True)\
+            .limit(5)\
+            .execute()
+        
+        recent_syncs = recent_result.data if recent_result.data else []
+        
+        return jsonify({
+            'success': True,
+            'sync_status': {
+                'total_collections': total_collections,
+                'synced_collections': synced_collections,
+                'local_collections': total_collections - synced_collections,
+                'sync_percentage': (synced_collections / total_collections * 100) if total_collections > 0 else 0,
+                'recent_syncs': recent_syncs
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting collections sync status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to get sync status',
+            'sync_status': {
+                'total_collections': 0,
+                'synced_collections': 0,
+                'local_collections': 0,
+                'sync_percentage': 0,
+                'recent_syncs': []
+            }
+        }), 200
