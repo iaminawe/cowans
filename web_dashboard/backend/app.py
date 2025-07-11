@@ -939,21 +939,24 @@ def serve_frontend_fallback(path):
     try:
         # Look for built frontend files in common locations
         frontend_paths = [
-            Path(__file__).parent.parent.parent / "frontend" / "build",
-            Path(__file__).parent.parent.parent / "frontend" / "dist", 
-            Path("/app/frontend/build"),  # Docker path
-            Path("/app/frontend/dist")    # Docker path
+            Path("/app/frontend/build"),  # Docker path (primary)
+            Path(__file__).parent / "frontend" / "build",  # Same directory structure
+            Path(__file__).parent.parent.parent / "frontend" / "build",  # Local dev path
+            Path(__file__).parent.parent.parent / "frontend" / "dist"   # Alternative build path
         ]
         
         for frontend_path in frontend_paths:
             if frontend_path.exists():
                 # Serve specific file if it exists
-                if path and (frontend_path / path).exists():
-                    return send_from_directory(frontend_path, path)
-                # Always serve index.html for React routing
+                if path:
+                    file_path = frontend_path / path
+                    if file_path.exists() and file_path.is_file():
+                        return send_from_directory(str(frontend_path), path)
+                
+                # For root or non-existent paths, always serve index.html for React routing
                 index_file = frontend_path / "index.html"
                 if index_file.exists():
-                    return send_from_directory(frontend_path, "index.html")
+                    return send_from_directory(str(frontend_path), "index.html")
         
         # If no frontend build found, return a basic HTML page
         return """

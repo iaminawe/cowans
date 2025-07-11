@@ -1,7 +1,7 @@
 # Multi-stage build - Frontend first
 FROM node:18-alpine AS frontend-builder
 
-WORKDIR /frontend
+WORKDIR /app
 
 # Copy frontend files
 COPY ./frontend/package*.json ./
@@ -9,8 +9,8 @@ RUN npm ci
 
 COPY ./frontend .
 
-# Ensure src/lib directory exists and has utils.ts
-RUN mkdir -p src/lib
+# Ensure required directories exist
+RUN mkdir -p src/lib public
 
 # Create utils.ts if it doesn't exist (fallback)
 RUN if [ ! -f "src/lib/utils.ts" ]; then \
@@ -23,10 +23,13 @@ export function cn(...inputs: ClassValue[]) { \
     echo "WARNING: Created src/lib/utils.ts as it was missing"; \
     fi
 
+# Debug: List files to verify structure
+RUN ls -la && ls -la public/ || echo "public directory not found"
+
 # Build frontend
 ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
-RUN npm run build:verbose || npm run build
+RUN npm run build
 
 # Backend stage
 FROM python:3.11-slim
@@ -55,7 +58,7 @@ COPY ./web_dashboard/backend .
 COPY ./scripts /app/scripts
 
 # Copy frontend build from builder stage
-COPY --from=frontend-builder /frontend/build /app/frontend/build
+COPY --from=frontend-builder /app/build /app/frontend/build
 
 # Create a non-root user first
 RUN useradd -m -u 1000 appuser
