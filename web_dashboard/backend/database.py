@@ -52,6 +52,10 @@ class DatabaseManager:
         supabase_url = os.getenv('SUPABASE_URL')
         supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
         
+        # Debug logging for environment variables
+        logger.info(f"Database URL check - SUPABASE_URL: {'SET' if supabase_url else 'NOT SET'}")
+        logger.info(f"Database URL check - SUPABASE_SERVICE_ROLE_KEY: {'SET' if supabase_key else 'NOT SET'}")
+        
         if supabase_url and supabase_key:
             # Check if we have a custom database URL from Supabase
             supabase_db_url = os.getenv('SUPABASE_DB_URL')
@@ -64,19 +68,25 @@ class DatabaseManager:
             # Extract database credentials from Supabase URL
             # Supabase URL format: https://[project-id].supabase.co
             project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
+            logger.info(f"Extracted project ID: {project_id}")
             
             # Check for pooler configuration to avoid IPv6 issues
             use_pooler = os.getenv('SUPABASE_USE_POOLER', 'true').lower() == 'true'
+            logger.info(f"Use pooler setting: {use_pooler}")
             
             if use_pooler:
                 # Use connection pooler (recommended for containers)
                 # This avoids IPv6 issues and provides better connection management
+                pooler_url = f"postgresql://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
                 logger.info(f"Using Supabase connection pooler for project: {project_id}")
-                return f"postgresql://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+                logger.info(f"Pooler URL format: postgresql://postgres.{project_id}:***@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true")
+                return pooler_url
             else:
                 # Direct connection (may have IPv6 issues in containers)
+                direct_url = f"postgresql://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
                 logger.info(f"Using direct Supabase connection for project: {project_id}")
-                return f"postgresql://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
+                logger.info(f"Direct URL format: postgresql://postgres:***@db.{project_id}.supabase.co:5432/postgres")
+                return direct_url
         
         # Use config object if available
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
