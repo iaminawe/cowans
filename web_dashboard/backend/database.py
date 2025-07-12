@@ -53,12 +53,30 @@ class DatabaseManager:
         supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
         
         if supabase_url and supabase_key:
+            # Check if we have a custom database URL from Supabase
+            supabase_db_url = os.getenv('SUPABASE_DB_URL')
+            if supabase_db_url:
+                # Use the provided database URL (should include password)
+                logger.info("Using custom SUPABASE_DB_URL")
+                return supabase_db_url
+            
+            # Otherwise, construct the database URL
             # Extract database credentials from Supabase URL
             # Supabase URL format: https://[project-id].supabase.co
             project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
-            # Use service role key for database access
-            # Supabase PostgreSQL format: postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres
-            return f"postgresql://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
+            
+            # Check for pooler configuration to avoid IPv6 issues
+            use_pooler = os.getenv('SUPABASE_USE_POOLER', 'true').lower() == 'true'
+            
+            if use_pooler:
+                # Use connection pooler (recommended for containers)
+                # This avoids IPv6 issues and provides better connection management
+                logger.info(f"Using Supabase connection pooler for project: {project_id}")
+                return f"postgresql://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+            else:
+                # Direct connection (may have IPv6 issues in containers)
+                logger.info(f"Using direct Supabase connection for project: {project_id}")
+                return f"postgresql://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
         
         # Use config object if available
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:

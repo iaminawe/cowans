@@ -208,6 +208,26 @@ npm test
 2. Check if user exists: `gregg@iaminawe.com`
 3. Ensure proper Supabase schema is applied
 
+### Database Connection Issues (IPv6/Network Unreachable)
+If you see errors like "Network is unreachable" or IPv6 connection failures:
+
+1. **Use Connection Pooler** (Recommended):
+   - The app defaults to using Supabase's connection pooler
+   - This avoids IPv6 issues in Docker containers
+   
+2. **Set Custom Database URL**:
+   - Go to Supabase Dashboard > Settings > Database
+   - Copy the "Connection pooling" connection string
+   - Add to `.env`: `SUPABASE_DB_URL=your-pooler-connection-string`
+   
+3. **Force IPv4 Connection**:
+   - Ensure `SUPABASE_USE_POOLER=true` in `.env` (default)
+   - This uses the pooler which only uses IPv4
+
+4. **Alternative Solutions**:
+   - Add `--add-host=host.docker.internal:host-gateway` to docker run
+   - Use Docker network in host mode (not recommended for production)
+
 ### API Errors
 - **404 errors**: Check for double `/api/` prefixes in frontend calls
 - **308 redirects**: Fixed in collections API (both routes supported)
