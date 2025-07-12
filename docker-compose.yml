@@ -6,7 +6,9 @@ services:
     container_name: cowans-backend
     environment:
       - FLASK_ENV=development
-      - DATABASE_URL=sqlite:////app/data/database.db
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-here}
       - SHOPIFY_SHOP_URL=${SHOPIFY_SHOP_URL}
@@ -63,7 +65,9 @@ services:
     container_name: cowans-celery
     command: celery -A celery_app worker --loglevel=info
     environment:
-      - DATABASE_URL=sqlite:////app/data/database.db
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0

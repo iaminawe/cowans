@@ -4,13 +4,26 @@ A comprehensive Shopify integration system with modern web dashboard for product
 
 ## 🚀 Quick Start
 
-To start the unified web dashboard:
+### Prerequisites
+- **Supabase Account**: This application requires Supabase for authentication and database
+- **Docker & Docker Compose**: For containerized deployment
+- **Environment Variables**: Copy `.env.example` to `.env` and configure
+
+### Start the Application
 
 ```bash
+# 1. Configure your Supabase credentials
+cp .env.example .env
+# Edit .env with your Supabase URL and keys
+
+# 2. Start with Docker Compose
+docker-compose up -d
+
+# Or use the unified script (for local development)
 ./start_dashboard_unified.sh
 ```
 
-That's it! The dashboard will be available at:
+The dashboard will be available at:
 - **Frontend**: http://localhost:3055
 - **Backend API**: http://localhost:3560
 
