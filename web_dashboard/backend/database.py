@@ -32,7 +32,7 @@ class DatabaseManager:
         self._scoped_session = None
         
     def _get_database_url(self) -> str:
-        """Get database URL from configuration with enhanced containerized environment support."""
+        """Get database URL from configuration with enhanced containerized environment support and fallback."""
         # Check for DATABASE_URL environment variable first
         database_url = os.getenv('DATABASE_URL')
         if database_url:
@@ -50,16 +50,15 @@ class DatabaseManager:
             
         # Check for Supabase configuration
         supabase_url = os.getenv('SUPABASE_URL')
-        if supabase_url:
+        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
+        
+        if supabase_url and supabase_key:
             # Extract database credentials from Supabase URL
             # Supabase URL format: https://[project-id].supabase.co
             project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
             # Use service role key for database access
-            service_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
-            if service_key:
-                # Extract the database connection string
-                # Supabase PostgreSQL format: postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres
-                return f"postgresql://postgres:{service_key}@db.{project_id}.supabase.co:5432/postgres"
+            # Supabase PostgreSQL format: postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres
+            return f"postgresql://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
         
         # Use config object if available
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
@@ -69,9 +68,11 @@ class DatabaseManager:
         if os.path.exists('/app/data'):
             # Containerized environment
             db_path = '/app/data/database.db'
+            logger.info("Using containerized SQLite database")
         else:
             # Development environment
             db_path = os.path.join(os.path.dirname(__file__), 'database.db')
+            logger.info("Using development SQLite database")
         
         # Ensure directory exists
         db_dir = os.path.dirname(db_path)

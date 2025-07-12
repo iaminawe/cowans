@@ -329,7 +329,8 @@ except Exception as e:
     # In containerized environments, this should be fatal
     if os.getenv('FLASK_ENV') == 'production':
         app.logger.critical("Database initialization failed in production - exiting")
-        raise
+        import sys
+        sys.exit(1)
     else:
         app.logger.warning("Database initialization failed in development - continuing")
 
