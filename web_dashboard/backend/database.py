@@ -77,9 +77,10 @@ class DatabaseManager:
             if use_pooler:
                 # Use connection pooler (recommended for containers)
                 # This avoids IPv6 issues and provides better connection management
-                pooler_url = f"postgresql://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+                # Force pooler connection to avoid IPv6 resolution issues
+                pooler_url = f"postgresql://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
                 logger.info(f"Using Supabase connection pooler for project: {project_id}")
-                logger.info(f"Pooler URL format: postgresql://postgres.{project_id}:***@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true")
+                logger.info(f"Pooler URL format: postgresql://postgres.{project_id}:***@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require")
                 return pooler_url
             else:
                 # Direct connection (may have IPv6 issues in containers)
