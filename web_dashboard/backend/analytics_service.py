@@ -81,9 +81,13 @@ class SyncAnalyticsService:
     
     def __init__(self, redis_client: Optional[redis.Redis] = None):
         """Initialize analytics service."""
-        self.redis_client = redis_client or redis.Redis(
-            host='localhost', port=6379, db=0, decode_responses=True
-        )
+        if redis_client:
+            self.redis_client = redis_client
+        else:
+            # Use Redis URL from environment, fallback to localhost for development
+            import os
+            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+            self.redis_client = redis.from_url(redis_url, decode_responses=True)
         self.metrics_key_prefix = "analytics:sync:"
         self.reports_key_prefix = "reports:sync:"
         
