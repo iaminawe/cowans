@@ -92,7 +92,8 @@ class OperationsOptimizedDatabaseManager:
             
             # Test connection
             with self.session_scope() as session:
-                session.execute("SELECT 1")
+                from sqlalchemy import text
+                session.execute(text("SELECT 1"))
                 logger.info("Database connection test successful")
                 
             if create_tables:
