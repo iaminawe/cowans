@@ -99,7 +99,7 @@ services:
   celery:
     build:
       context: .
-      dockerfile: ./web_dashboard/backend/Dockerfile.coolify
+      dockerfile: ./web_dashboard/backend/Dockerfile.coolify.optimized
     command: celery -A celery_app worker --loglevel=info --concurrency=4 --max-tasks-per-child=100 -Q sync,generation,batch,import,download,processing,upload,maintenance
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres.gqozcvqgsjaagnnjukmo:fotMat-gomqih-8cybne@aws-0-us-west-1.pooler.supabase.com:6543/postgres}
