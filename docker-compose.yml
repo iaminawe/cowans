@@ -6,7 +6,7 @@ services:
     container_name: cowans-backend
     environment:
       - FLASK_ENV=development
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:fotMat-gomqih-8cybne@db.gqozcvqgsjaagnnjukmo.supabase.co:5432/postgres}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres.gqozcvqgsjaagnnjukmo:fotMat-gomqih-8cybne@aws-0-us-west-1.pooler.supabase.com:6543/postgres}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
@@ -67,7 +67,7 @@ services:
     container_name: cowans-celery
     command: celery -A celery_app worker --loglevel=info
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:fotMat-gomqih-8cybne@db.gqozcvqgsjaagnnjukmo.supabase.co:5432/postgres}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres.gqozcvqgsjaagnnjukmo:fotMat-gomqih-8cybne@aws-0-us-west-1.pooler.supabase.com:6543/postgres}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
