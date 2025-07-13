@@ -31,7 +31,7 @@ class Config:
     # Ensure log directory exists
     try:
         os.makedirs(LOG_PATH, exist_ok=True)
-    except PermissionError:
+    except (PermissionError, OSError):
         # Directory will be created by Docker with proper permissions
         pass
     
@@ -40,7 +40,7 @@ class Config:
     # Only create directory if we have permissions (defer to Dockerfile setup)
     try:
         os.makedirs(IMAGES_STORAGE_PATH, exist_ok=True)
-    except PermissionError:
+    except (PermissionError, OSError):
         # Directory will be created by Docker with proper permissions
         pass
     

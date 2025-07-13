@@ -67,7 +67,11 @@ class JobLogHandler(logging.Handler):
 def setup_app_logging(app, log_path):
     """Setup application-wide logging."""
     # Ensure log directory exists
-    os.makedirs(log_path, exist_ok=True)
+    try:
+        os.makedirs(log_path, exist_ok=True)
+    except (PermissionError, OSError):
+        # Directory will be created by Docker with proper permissions
+        pass
     
     # Remove default handlers
     app.logger.handlers = []
@@ -80,42 +84,48 @@ def setup_app_logging(app, log_path):
     )
     console_handler.setFormatter(console_formatter)
     
-    # File handler with rotation
-    file_handler = logging.handlers.RotatingFileHandler(
-        os.path.join(log_path, 'app.log'),
-        maxBytes=10485760,  # 10MB
-        backupCount=10
-    )
-    file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    file_handler.setFormatter(file_formatter)
-    
-    # JSON file handler for structured logs
-    json_handler = logging.handlers.RotatingFileHandler(
-        os.path.join(log_path, 'app.json.log'),
-        maxBytes=10485760,  # 10MB
-        backupCount=10
-    )
-    json_handler.setLevel(logging.INFO)
-    json_formatter = CustomJsonFormatter()
-    json_handler.setFormatter(json_formatter)
-    
-    # Error file handler
-    error_handler = logging.handlers.RotatingFileHandler(
-        os.path.join(log_path, 'errors.log'),
-        maxBytes=10485760,  # 10MB
-        backupCount=10
-    )
-    error_handler.setLevel(logging.ERROR)
-    error_handler.setFormatter(file_formatter)
-    
-    # Add handlers
+    # Add console handler (always works)
     app.logger.addHandler(console_handler)
-    app.logger.addHandler(file_handler)
-    app.logger.addHandler(json_handler)
-    app.logger.addHandler(error_handler)
+    
+    # File handlers (only if filesystem is writable)
+    try:
+        # File handler with rotation
+        file_handler = logging.handlers.RotatingFileHandler(
+            os.path.join(log_path, 'app.log'),
+            maxBytes=10485760,  # 10MB
+            backupCount=10
+        )
+        file_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        file_handler.setFormatter(file_formatter)
+        app.logger.addHandler(file_handler)
+        
+        # JSON file handler for structured logs
+        json_handler = logging.handlers.RotatingFileHandler(
+            os.path.join(log_path, 'app.json.log'),
+            maxBytes=10485760,  # 10MB
+            backupCount=10
+        )
+        json_handler.setLevel(logging.INFO)
+        json_formatter = CustomJsonFormatter()
+        json_handler.setFormatter(json_formatter)
+        app.logger.addHandler(json_handler)
+        
+        # Error file handler
+        error_handler = logging.handlers.RotatingFileHandler(
+            os.path.join(log_path, 'errors.log'),
+            maxBytes=10485760,  # 10MB
+            backupCount=10
+        )
+        error_handler.setLevel(logging.ERROR)
+        error_handler.setFormatter(file_formatter)
+        app.logger.addHandler(error_handler)
+        
+    except (PermissionError, OSError):
+        # File system is read-only - use console logging only
+        app.logger.info("File system is read-only, using console logging only")
     
     # Set level
     app.logger.setLevel(logging.INFO)
@@ -138,15 +148,19 @@ def get_job_logger(job_id, redis_client, socketio=None):
     job_handler.setFormatter(formatter)
     logger.addHandler(job_handler)
     
-    # Also log to file
+    # Also log to file (only if filesystem is writable)
     log_file = os.path.join('logs', 'jobs', f'{job_id}.log')
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s'
-    ))
-    logger.addHandler(file_handler)
+    try:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s'
+        ))
+        logger.addHandler(file_handler)
+    except (PermissionError, OSError):
+        # Directory can't be created or file can't be written - use console logging only
+        pass
     
     return logger
 
