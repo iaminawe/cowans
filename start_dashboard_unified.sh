@@ -187,7 +187,7 @@ fi
 
 # Start frontend
 print_status "Starting frontend server on port $FRONTEND_PORT..."
-BROWSER=none PORT=$FRONTEND_PORT npm start > "../$LOG_DIR/frontend.log" 2>&1 &
+BROWSER=none PORT=$FRONTEND_PORT REACT_APP_API_URL="http://localhost:$BACKEND_PORT/api" npm start > "../$LOG_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 
 # Wait for frontend to start
