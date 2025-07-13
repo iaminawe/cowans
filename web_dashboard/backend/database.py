@@ -36,6 +36,10 @@ class DatabaseManager:
         database_url = os.getenv('DATABASE_URL')
         if database_url:
             logger.info("Using DATABASE_URL environment variable")
+            # Convert to psycopg3 dialect if needed
+            if database_url.startswith('postgresql://'):
+                database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+                logger.info("Converted to psycopg3 dialect")
             return database_url
             
         # Check for Supabase configuration
@@ -68,21 +72,28 @@ class DatabaseManager:
                 # Use connection pooler (recommended for containers)
                 # This avoids IPv6 issues and provides better connection management
                 # Force pooler connection to avoid IPv6 resolution issues
-                pooler_url = f"postgresql://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
+                # Use postgresql+psycopg for psycopg3 driver
+                pooler_url = f"postgresql+psycopg://postgres.{project_id}:{supabase_key}@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
                 logger.info(f"Using Supabase connection pooler for project: {project_id}")
-                logger.info(f"Pooler URL format: postgresql://postgres.{project_id}:***@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require")
+                logger.info(f"Pooler URL format: postgresql+psycopg://postgres.{project_id}:***@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require")
                 return pooler_url
             else:
                 # Direct connection (may have IPv6 issues in containers)
-                direct_url = f"postgresql://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
+                # Use postgresql+psycopg for psycopg3 driver
+                direct_url = f"postgresql+psycopg://postgres:{supabase_key}@db.{project_id}.supabase.co:5432/postgres"
                 logger.info(f"Using direct Supabase connection for project: {project_id}")
-                logger.info(f"Direct URL format: postgresql://postgres:***@db.{project_id}.supabase.co:5432/postgres")
+                logger.info(f"Direct URL format: postgresql+psycopg://postgres:***@db.{project_id}.supabase.co:5432/postgres")
                 return direct_url
         
         # Use config object if available
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
             logger.info("Using Config.DATABASE_URL")
-            return Config.DATABASE_URL
+            database_url = Config.DATABASE_URL
+            # Convert to psycopg3 dialect if needed
+            if database_url.startswith('postgresql://'):
+                database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+                logger.info("Converted to psycopg3 dialect")
+            return database_url
         
         # No valid database configuration found - this is an error
         error_msg = "No valid database configuration found. Please set DATABASE_URL or SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY environment variables."
