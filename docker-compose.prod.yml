@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./web_dashboard/backend/Dockerfile.prod
+      dockerfile: ./web_dashboard/backend/Dockerfile
     container_name: cowans-backend
     environment:
       - FLASK_ENV=production
@@ -21,10 +21,10 @@ services:
       - FTP_PASSWORD=${FTP_PASSWORD}
       - PYTHONUNBUFFERED=1
       # Performance tuning for small server
-      - GUNICORN_WORKERS=1
-      - GUNICORN_WORKER_CONNECTIONS=50
-      - GUNICORN_THREADS=2
-      - MEMORY_MONITOR_ENABLED=false
+      - GUNICORN_WORKERS=1  # 1 worker for 2 CPUs
+      - GUNICORN_WORKER_CONNECTIONS=50  # Reduced from 500
+      - GUNICORN_THREADS=2  # Use threads instead of processes
+      - MEMORY_MONITOR_ENABLED=false  # Disable memory monitoring in prod
     volumes:
       - backend-data:/app/data
       - shared-icons:/app/icons
@@ -44,11 +44,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
-          memory: 1G
+          cpus: '0.8'  # 80% of 1 CPU for backend
+          memory: 1G    # 1GB RAM max
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.5'  # Guarantee 50% of 1 CPU
+          memory: 512M  # Guarantee 512MB RAM
 
   frontend:
     build:
@@ -77,16 +77,16 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 256M
+          cpus: '0.3'  # 30% of 1 CPU for static files
+          memory: 256M  # 256MB RAM max
         reservations:
-          cpus: '0.1'
-          memory: 128M
+          cpus: '0.1'  # Guarantee 10% of 1 CPU
+          memory: 128M  # Guarantee 128MB RAM
 
   celery:
     build:
       context: .
-      dockerfile: ./web_dashboard/backend/Dockerfile.prod
+      dockerfile: ./web_dashboard/backend/Dockerfile
     container_name: cowans-celery
     command: celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=100
     environment:
@@ -116,11 +116,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 768M
+          cpus: '0.5'  # 50% of 1 CPU for Celery
+          memory: 768M  # 768MB RAM max
         reservations:
-          cpus: '0.3'
-          memory: 512M
+          cpus: '0.3'  # Guarantee 30% of 1 CPU
+          memory: 512M  # Guarantee 512MB RAM
 
   redis:
     image: redis:7-alpine
@@ -141,11 +141,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: 256M
+          cpus: '0.2'  # 20% of 1 CPU for Redis
+          memory: 256M  # 256MB RAM max
         reservations:
-          cpus: '0.1'
-          memory: 128M
+          cpus: '0.1'  # Guarantee 10% of 1 CPU
+          memory: 128M  # Guarantee 128MB RAM
     # Redis memory policy for small servers
     command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
 
@@ -169,11 +169,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: 128M
+          cpus: '0.2'  # 20% of 1 CPU for Nginx
+          memory: 128M  # 128MB RAM max
         reservations:
-          cpus: '0.1'
-          memory: 64M
+          cpus: '0.1'  # Guarantee 10% of 1 CPU
+          memory: 64M   # Guarantee 64MB RAM
 
 volumes:
   backend-data:
