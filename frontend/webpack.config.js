@@ -77,8 +77,12 @@ module.exports = (env, argv) => {
         {
           context: ['/api'],
           target: 'http://localhost:3560',
-          changeOrigin: true,
+          changeOrigin: false,  // Keep original origin for CORS
           secure: false,
+          logLevel: 'debug',
+          onProxyReq: function(proxyReq, req, res) {
+            proxyReq.setHeader('Origin', 'http://localhost:3055');
+          },
         }
       ],
     },

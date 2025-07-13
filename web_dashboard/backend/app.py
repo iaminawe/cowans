@@ -102,13 +102,17 @@ from services.shopify_product_sync_service import ShopifyProductSyncService
 app = Flask(__name__)
 app.config.from_object(config[os.getenv('FLASK_ENV', 'development')])
 
-# Initialize CORS with broader support for development and production
+# Initialize CORS with specific configuration for credentials support
 CORS(app, 
-     origins=["http://localhost:3055", "http://localhost:3056", "http://localhost:3560", "https://cowans.apps.iaminawe.net"],
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-     expose_headers=["Authorization"])
+     resources={
+         r"/api/*": {
+             "origins": ["http://localhost:3055", "http://localhost:3056", "http://localhost:3560", "https://cowans.apps.iaminawe.net"],
+             "supports_credentials": True,
+             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+             "expose_headers": ["Authorization"]
+         }
+     })
 
 # Initialize JWT
 jwt = JWTManager(app)
