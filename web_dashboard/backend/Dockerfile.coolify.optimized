@@ -1,0 +1,98 @@
+# Optimized Multi-stage Dockerfile for faster Coolify builds
+# Key optimizations:
+# 1. Use slim images and multi-stage builds
+# 2. Better layer caching with separate dependency installation
+# 3. Parallel operations where possible
+# 4. Minimal system dependencies
+# 5. Pre-built Python wheels
+
+# Frontend stage - optimized for faster builds
+FROM node:18-alpine AS frontend-builder
+
+# Use npm cache mount for faster installs
+WORKDIR /app/frontend
+COPY ./frontend/package*.json ./
+
+# Install dependencies with cache mount and CI optimizations
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production --no-audit --no-fund
+
+# Copy source and build (separate layer for better caching)
+COPY ./frontend ./
+RUN npm run build
+
+# Python dependencies stage - separate for better caching
+FROM python:3.11-slim AS python-deps
+
+# Install system dependencies in one layer with minimal packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy requirements first for maximum cache efficiency
+COPY ./web_dashboard/backend/requirements.txt /tmp/requirements.txt
+
+# Install Python dependencies with cache mount and pre-compiled wheels
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --prefer-binary -r /tmp/requirements.txt \
+    && pip install --no-cache-dir --prefer-binary gunicorn
+
+# Final runtime stage - minimal and fast
+FROM python:3.11-slim AS runtime
+
+# Install only runtime dependencies (no build tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy Python packages from deps stage
+COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-deps /usr/local/bin/gunicorn /usr/local/bin/gunicorn
+COPY --from=python-deps /usr/local/bin/celery /usr/local/bin/celery
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY ./web_dashboard/backend .
+
+# Use optimized app if it exists (single operation)
+RUN if [ -f app_optimized.py ]; then mv app_optimized.py app.py; fi
+
+# Copy scripts and frontend build
+COPY ./scripts /app/scripts
+COPY --from=frontend-builder /app/frontend/build /app/frontend/build
+
+# Create user and directories in single layer
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/data /app/data/generated_icons /app/icons /app/logs /app/backups && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Create optimized entrypoint (inline to avoid extra layer)
+RUN printf '#!/bin/sh\n\
+mkdir -p /app/data/generated_icons /app/logs /app/icons\n\
+export PYTHONOPTIMIZE=1\n\
+export PYTHONDONTWRITEBYTECODE=1\n\
+WORKERS=${GUNICORN_WORKERS:-1}\n\
+WORKER_CONNECTIONS=${GUNICORN_WORKER_CONNECTIONS:-50}\n\
+THREADS=${GUNICORN_THREADS:-2}\n\
+echo "Starting optimized Gunicorn with $WORKERS workers, $THREADS threads..."\n\
+exec gunicorn --config /app/gunicorn.conf.py app:app\n' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
+# Expose port
+EXPOSE 3560
+
+# Optimized health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=2 \
+    CMD curl -f http://localhost:3560/health || exit 1
+
+# Set entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]

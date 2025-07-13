@@ -1,77 +1,113 @@
-# Git
+# Dockerignore for faster build context
+
+# Version control
 .git
 .gitignore
+.gitattributes
 
-# Python
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.pytest_cache/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# IDEs
-.vscode/
-.idea/
+# IDE and editor files
+.vscode
+.idea
 *.swp
 *.swo
 *~
 .DS_Store
 
-# Project specific
-data/*.csv
-data/*.zip
+# Logs
+*.log
 logs/
-backups/
-*.db
-*.db-shm
-*.db-wal
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output
+
+# Dependency directories
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Build outputs
+frontend/build/
+frontend/dist/
+*.egg-info/
+dist/
+build/
+
+# Cache directories
+.cache/
+.npm/
+.eslintcache
+.pytest_cache/
+
+# Environment files (use .env.example instead)
 .env
 .env.local
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Build artifacts
-build/
-dist/
-*.egg-info/
-
-# Documentation
-docs/
-*.md
-!README.md
-
-# Tests
-tests/
-test_*.py
-*_test.py
-*_tests.py
-
-# Scripts (keep only necessary ones)
-scripts/tests/
-scripts/debug/
-scripts/*.log
+# Database
+*.db
+*.sqlite3
 
 # Temporary files
 *.tmp
 *.temp
+.tmp/
 .temp/
-tmp/
+
+# Documentation (not needed in container)
+*.md
+docs/
+documentation/
+
+# Test files (not needed in production)
+tests/
+test/
+**/tests/
+**/test/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Development tools
+webpack.config.js
+tsconfig.json
+.babelrc
+.eslintrc*
+.prettierrc*
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Coolify generated files
+.coolify/
+
+# Additional patterns for faster builds
+README*
+LICENSE*
+CHANGELOG*
+*.md
+.github/
+.circleci/
+.travis.yml
