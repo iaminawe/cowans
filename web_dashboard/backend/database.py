@@ -9,10 +9,9 @@ import logging
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, scoped_session, Session
-from sqlalchemy.pool import StaticPool
 from sqlalchemy.exc import SQLAlchemyError
 
 from models import Base, create_performance_indexes
@@ -32,20 +31,11 @@ class DatabaseManager:
         self._scoped_session = None
         
     def _get_database_url(self) -> str:
-        """Get database URL from configuration with enhanced containerized environment support and fallback."""
+        """Get PostgreSQL database URL from configuration - Supabase only."""
         # Check for DATABASE_URL environment variable first
         database_url = os.getenv('DATABASE_URL')
         if database_url:
-            # Handle containerized paths - ensure directory exists
-            if database_url.startswith('sqlite'):
-                db_path = database_url.replace('sqlite:///', '')
-                db_dir = os.path.dirname(db_path)
-                if db_dir and not os.path.exists(db_dir):
-                    try:
-                        os.makedirs(db_dir, exist_ok=True)
-                        logger.info(f"Created database directory: {db_dir}")
-                    except Exception as e:
-                        logger.error(f"Failed to create database directory {db_dir}: {e}")
+            logger.info("Using DATABASE_URL environment variable")
             return database_url
             
         # Check for Supabase configuration
@@ -91,73 +81,27 @@ class DatabaseManager:
         
         # Use config object if available
         if hasattr(Config, 'DATABASE_URL') and Config.DATABASE_URL:
+            logger.info("Using Config.DATABASE_URL")
             return Config.DATABASE_URL
         
-        # Default to SQLite database - prefer containerized location if available
-        if os.path.exists('/app/data'):
-            # Containerized environment
-            db_path = '/app/data/database.db'
-            logger.info("Using containerized SQLite database")
-        else:
-            # Development environment
-            db_path = os.path.join(os.path.dirname(__file__), 'database.db')
-            logger.info("Using development SQLite database")
-        
-        # Ensure directory exists
-        db_dir = os.path.dirname(db_path)
-        if not os.path.exists(db_dir):
-            try:
-                os.makedirs(db_dir, exist_ok=True)
-                logger.info(f"Created database directory: {db_dir}")
-            except Exception as e:
-                logger.error(f"Failed to create database directory {db_dir}: {e}")
-        
-        return f"sqlite:///{db_path}"
+        # No valid database configuration found - this is an error
+        error_msg = "No valid database configuration found. Please set DATABASE_URL or SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY environment variables."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
     
     def initialize(self, create_tables: bool = False) -> None:
-        """Initialize database connection with enhanced containerized environment support."""
+        """Initialize PostgreSQL database connection."""
         try:
-            # Create engine with appropriate settings
-            if self.database_url.startswith('sqlite'):
-                # SQLite-specific settings with containerized environment support
-                is_containerized = os.path.exists('/app/data')
-                if is_containerized:
-                    logger.info("SQLite in containerized environment detected")
-                else:
-                    logger.info("SQLite in development environment")
-                    
-                self.engine = create_engine(
-                    self.database_url,
-                    echo=False,  # Set to True for SQL debugging
-                    poolclass=StaticPool,
-                    connect_args={
-                        'check_same_thread': False,  # Allow SQLite to be used with multiple threads
-                        'timeout': 30,  # Connection timeout
-                    },
-                    pool_pre_ping=True,  # Verify connections before use
-                )
-                
-                # Enable foreign key constraints for SQLite
-                @event.listens_for(self.engine, "connect")
-                def set_sqlite_pragma(dbapi_connection, connection_record):
-                    cursor = dbapi_connection.cursor()
-                    cursor.execute("PRAGMA foreign_keys=ON")
-                    cursor.execute("PRAGMA journal_mode=WAL")  # Enable WAL mode for better concurrency
-                    cursor.execute("PRAGMA synchronous=NORMAL")  # Balance between safety and performance
-                    cursor.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
-                    cursor.execute("PRAGMA cache_size=10000")  # Increase cache size for better performance
-                    cursor.close()
-                    
-            else:
-                # PostgreSQL/Supabase settings
-                self.engine = create_engine(
-                    self.database_url,
-                    echo=False,
-                    pool_size=10,
-                    max_overflow=20,
-                    pool_pre_ping=True,
-                    pool_recycle=3600,  # Recycle connections after 1 hour
-                )
+            # Create PostgreSQL/Supabase engine
+            logger.info("Initializing PostgreSQL database connection")
+            self.engine = create_engine(
+                self.database_url,
+                echo=False,
+                pool_size=10,
+                max_overflow=20,
+                pool_pre_ping=True,
+                pool_recycle=3600,  # Recycle connections after 1 hour
+            )
             
             # Create session factory
             self.session_factory = sessionmaker(
