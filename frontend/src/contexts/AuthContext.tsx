@@ -75,16 +75,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(response.user);
     } catch (error: any) {
       console.error('Failed to refresh user:', error);
-      // Token might be expired or invalid
-      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      
+      // Clear any invalid tokens for various error types
+      if (error.message?.includes('401') || 
+          error.message?.includes('Unauthorized') || 
+          error.message?.includes('Authentication required') ||
+          error.message?.includes('SyntaxError') ||
+          error.message?.includes('string did not match') ||
+          error instanceof SyntaxError) {
+        console.log('Clearing invalid auth token due to error:', error.message);
         localStorage.removeItem('auth_token');
+        apiClient.setAuthToken(null);
         setUser(null);
+        clearError(); // Clear any existing errors
       } else {
         // For other errors, don't clear the token immediately
         setError(error.message || 'Failed to refresh user');
       }
+    } finally {
+      setLoading(false);
     }
-  }, [setUser, setError]);
+  }, [setUser, setError, clearError, setLoading]);
 
   // Login function
   const login = useCallback(async (email: string, password: string) => {
@@ -133,7 +144,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const initializeAuth = async () => {
       const token = localStorage.getItem('auth_token');
       if (token) {
-        await refreshUser();
+        try {
+          // Validate token format before attempting to use it
+          if (token === 'dev-token' || token.includes('undefined') || token.length < 10) {
+            console.log('Clearing invalid/dev token');
+            localStorage.removeItem('auth_token');
+            apiClient.setAuthToken(null);
+            setLoading(false);
+            return;
+          }
+          
+          await refreshUser();
+        } catch (error) {
+          console.error('Auth initialization error:', error);
+          // Clear problematic token
+          localStorage.removeItem('auth_token');
+          apiClient.setAuthToken(null);
+          setLoading(false);
+        }
       } else {
         setLoading(false);
       }
