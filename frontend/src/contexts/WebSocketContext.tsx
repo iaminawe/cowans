@@ -1,18 +1,19 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-
-interface WebSocketMessage {
-  type: 'log' | 'progress' | 'status' | 'error' | 'complete' | 
-        'operation_start' | 'operation_progress' | 'operation_log' | 
-        'operation_complete' | 'sync_status' | 'import_status';
-  data: any;
-  timestamp: string;
-}
+import { 
+  WebSocketMessage, 
+  WebSocketData, 
+  WebSocketCallback, 
+  OutgoingWebSocketMessage,
+  WebSocketEventMap 
+} from '@/types/websocket';
 
 interface WebSocketContextType {
   isConnected: boolean;
-  sendMessage: (message: any) => void;
-  subscribe: (type: string, callback: (data: any) => void) => () => void;
+  sendMessage: (message: OutgoingWebSocketMessage) => void;
+  subscribe: <K extends keyof WebSocketEventMap>(type: K, callback: WebSocketCallback<WebSocketEventMap[K]>) => () => void;
+  subscribeCustom: (type: string, callback: WebSocketCallback) => () => void;
+  subscribeWildcard: (callback: (message: WebSocketMessage) => void) => () => void;
   lastMessage: WebSocketMessage | null;
 }
 
@@ -44,7 +45,8 @@ export function WebSocketProvider({
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const subscribersRef = useRef<Map<string, Set<(data: any) => void>>>(new Map());
+  const subscribersRef = useRef<Map<string, Set<WebSocketCallback>>>(new Map());
+  const wildcardSubscribersRef = useRef<Set<(message: WebSocketMessage) => void>>(new Set());
 
   const connect = useCallback(() => {
     // Skip WebSocket connection if disabled
@@ -87,11 +89,15 @@ export function WebSocketProvider({
       ];
       
       eventTypes.forEach(eventType => {
-        socket.on(eventType, (data) => {
+        socket.on(eventType, (data: unknown) => {
           const message: WebSocketMessage = {
-            type: eventType as any,
-            data: data.data || data,
-            timestamp: data.timestamp || new Date().toISOString()
+            type: eventType as WebSocketMessage['type'],
+            data: (data && typeof data === 'object' && 'data' in data) 
+              ? (data as { data: WebSocketData }).data 
+              : data as WebSocketData,
+            timestamp: (data && typeof data === 'object' && 'timestamp' in data) 
+              ? (data as { timestamp: string }).timestamp 
+              : new Date().toISOString()
           };
           
           setLastMessage(message);
@@ -103,10 +109,8 @@ export function WebSocketProvider({
           }
 
           // Also notify wildcard subscribers
-          const wildcardSubscribers = subscribersRef.current.get('*');
-          if (wildcardSubscribers) {
-            wildcardSubscribers.forEach(callback => callback(message));
-          }
+          const wildcardSubscribers = wildcardSubscribersRef.current;
+          wildcardSubscribers.forEach(callback => callback(message));
         });
       });
 
@@ -127,7 +131,7 @@ export function WebSocketProvider({
     }
   }, []);
 
-  const sendMessage = useCallback((message: any) => {
+  const sendMessage = useCallback((message: OutgoingWebSocketMessage) => {
     if (socketRef.current && socketRef.current.connected) {
       // Emit based on message type or use a default event
       const eventType = message.type || 'execute';
@@ -140,7 +144,29 @@ export function WebSocketProvider({
     }
   }, [enableWebSocket]);
 
-  const subscribe = useCallback((type: string, callback: (data: any) => void) => {
+  const subscribe = useCallback(<K extends keyof WebSocketEventMap>(
+    type: K, 
+    callback: WebSocketCallback<WebSocketEventMap[K]>
+  ) => {
+    const typeString = type as string;
+    if (!subscribersRef.current.has(typeString)) {
+      subscribersRef.current.set(typeString, new Set());
+    }
+    subscribersRef.current.get(typeString)!.add(callback as WebSocketCallback);
+
+    // Return unsubscribe function
+    return () => {
+      const subscribers = subscribersRef.current.get(typeString);
+      if (subscribers) {
+        subscribers.delete(callback as WebSocketCallback);
+        if (subscribers.size === 0) {
+          subscribersRef.current.delete(typeString);
+        }
+      }
+    };
+  }, []);
+
+  const subscribeCustom = useCallback((type: string, callback: WebSocketCallback) => {
     if (!subscribersRef.current.has(type)) {
       subscribersRef.current.set(type, new Set());
     }
@@ -158,6 +184,15 @@ export function WebSocketProvider({
     };
   }, []);
 
+  const subscribeWildcard = useCallback((callback: (message: WebSocketMessage) => void) => {
+    wildcardSubscribersRef.current.add(callback);
+
+    // Return unsubscribe function
+    return () => {
+      wildcardSubscribersRef.current.delete(callback);
+    };
+  }, []);
+
   useEffect(() => {
     connect();
     return () => {
@@ -169,6 +204,8 @@ export function WebSocketProvider({
     isConnected,
     sendMessage,
     subscribe,
+    subscribeCustom,
+    subscribeWildcard,
     lastMessage
   };
 

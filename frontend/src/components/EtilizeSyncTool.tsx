@@ -77,37 +77,40 @@ interface LocalImportJob {
 }
 
 // Type adapters for API compatibility
-function adaptFTPConnectionStatus(apiStatus: any): LocalFTPConnectionStatus {
+function adaptFTPConnectionStatus(apiStatus: unknown): LocalFTPConnectionStatus {
+  const status = apiStatus as Record<string, unknown>;
   return {
-    connected: apiStatus.connected || false,
-    lastChecked: apiStatus.lastChecked || apiStatus.last_connection || new Date().toISOString(),
-    error: apiStatus.error
+    connected: Boolean(status.connected),
+    lastChecked: (status.lastChecked as string) || (status.last_connection as string) || new Date().toISOString(),
+    error: status.error as string | undefined
   };
 }
 
-function adaptFTPFile(apiFile: any): LocalFTPFile {
+function adaptFTPFile(apiFile: unknown): LocalFTPFile {
+  const file = apiFile as Record<string, unknown>;
   return {
-    name: apiFile.name || '',
-    size: apiFile.size || 0,
-    modified: apiFile.modified || new Date().toISOString(),
-    type: apiFile.type || 'file',
-    isNew: apiFile.isNew || false
+    name: (file.name as string) || '',
+    size: Number(file.size) || 0,
+    modified: (file.modified as string) || new Date().toISOString(),
+    type: (file.type as 'file' | 'directory') || 'file',
+    isNew: Boolean(file.isNew)
   };
 }
 
-function adaptImportJob(apiJob: any): LocalImportJob {
+function adaptImportJob(apiJob: unknown): LocalImportJob {
+  const job = apiJob as Record<string, unknown>;
   return {
-    id: apiJob.id || apiJob.job_id || '',
-    filename: apiJob.filename || '',
-    status: apiJob.status || 'queued',
-    progress: apiJob.progress || 0,
-    fileSize: apiJob.fileSize || apiJob.file_size || 0,
-    downloadedSize: apiJob.downloadedSize || apiJob.downloaded_size || 0,
-    recordsProcessed: apiJob.recordsProcessed || apiJob.processed_records || 0,
-    recordsTotal: apiJob.recordsTotal || apiJob.total_records || 0,
-    startTime: apiJob.startTime || apiJob.created_at || new Date().toISOString(),
-    endTime: apiJob.endTime || apiJob.completed_at,
-    error: apiJob.error || apiJob.error_message
+    id: (job.id as string) || (job.job_id as string) || '',
+    filename: (job.filename as string) || '',
+    status: (job.status as LocalImportJob['status']) || 'queued',
+    progress: Number(job.progress) || 0,
+    fileSize: Number(job.fileSize || job.file_size) || 0,
+    downloadedSize: Number(job.downloadedSize || job.downloaded_size) || 0,
+    recordsProcessed: Number(job.recordsProcessed || job.processed_records) || 0,
+    recordsTotal: Number(job.recordsTotal || job.total_records) || 0,
+    startTime: (job.startTime as string) || (job.created_at as string) || new Date().toISOString(),
+    endTime: (job.endTime as string) || (job.completed_at as string) || undefined,
+    error: (job.error as string) || (job.error_message as string) || undefined
   };
 }
 
@@ -134,7 +137,7 @@ export function EtilizeSyncTool({ className }: EtilizeSyncToolProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { subscribe, sendMessage, isConnected } = useWebSocket();
+  const { subscribe, subscribeCustom, sendMessage, isConnected } = useWebSocket();
 
   useEffect(() => {
     checkFTPConnection();
@@ -144,23 +147,25 @@ export function EtilizeSyncTool({ className }: EtilizeSyncToolProps) {
   useEffect(() => {
     if (!isConnected) return;
 
-    const unsubscribeFTPStatus = subscribe('etilize-ftp-status', (data) => {
+    const unsubscribeFTPStatus = subscribeCustom('etilize-ftp-status', (data) => {
       setFtpStatus(adaptFTPConnectionStatus(data));
     });
 
-    const unsubscribeNewFile = subscribe('etilize-new-file', (data) => {
+    const unsubscribeNewFile = subscribeCustom('etilize-new-file', (data) => {
+      const fileData = data as Record<string, unknown>;
       if (importConfig.notifyOnNew) {
-        setSuccess(`New file detected: ${data.filename}`);
+        setSuccess(`New file detected: ${fileData.filename}`);
       }
       if (importConfig.autoImport) {
-        handleImportFile(data.filename);
+        handleImportFile(fileData.filename as string);
       } else {
         scanFTPDirectory();
       }
     });
 
-    const unsubscribeImportProgress = subscribe('etilize-import-progress', (data) => {
-      const adaptedJob = adaptImportJob(data.job);
+    const unsubscribeImportProgress = subscribeCustom('etilize-import-progress', (data) => {
+      const progressData = data as Record<string, unknown>;
+      const adaptedJob = adaptImportJob(progressData.job);
       setCurrentJob(adaptedJob);
       
       if (adaptedJob.status === 'completed' || adaptedJob.status === 'failed') {
@@ -278,7 +283,7 @@ export function EtilizeSyncTool({ className }: EtilizeSyncToolProps) {
     }
   };
 
-  const handleConfigChange = (field: keyof ImportConfig, value: any) => {
+  const handleConfigChange = (field: keyof ImportConfig, value: string | boolean) => {
     setImportConfig(prev => ({ ...prev, [field]: value }));
   };
 

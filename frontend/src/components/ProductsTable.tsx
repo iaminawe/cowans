@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { apiClient } from '@/lib/api';
+import { PaginatedResponse, ApiResponse, OperationResponse } from '@/types/api';
 import { 
   Package,
   Search,
@@ -81,7 +82,7 @@ export function ProductsTable({
   const [totalProducts, setTotalProducts] = useState(0);
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [batchAction, setBatchAction] = useState<string>('');
-  const [batchData, setBatchData] = useState<any>({});
+  const [batchData, setBatchData] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     loadProducts();
@@ -101,12 +102,12 @@ export function ProductsTable({
         sort_order: sortOrder
       };
       
-      const data: any = await apiClient.get(`/products?${new URLSearchParams(params as any)}`);
-      setProducts(data.products);
-      setTotalProducts(data.total);
-    } catch (error: any) {
+      const data = await apiClient.get<PaginatedResponse<Product>>(`/products?${new URLSearchParams(params)}`);
+      setProducts(data.data || []);
+      setTotalProducts(data.total || 0);
+    } catch (error: unknown) {
       console.error('Error loading products:', error);
-      setError(error.message || 'Failed to load products');
+      setError(error instanceof Error ? error.message : 'Failed to load products');
     } finally {
       setLoading(false);
     }
@@ -187,9 +188,9 @@ export function ProductsTable({
       if (onBatchAction) {
         onBatchAction(batchAction, productIds);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Batch action failed:', error);
-      alert(error.message || 'Batch action failed');
+      alert(error instanceof Error ? error.message : 'Batch action failed');
     }
   };
 
@@ -209,8 +210,8 @@ export function ProductsTable({
     await apiClient.post('/shopify/sync/products', { product_ids: productIds });
   };
 
-  const updateProductsPricing = async (productIds: number[], priceData: any) => {
-    await apiClient.post('/products/batch/update-pricing', { 
+  const updateProductsPricing = async (productIds: number[], priceData: Record<string, unknown>) => {
+    await apiClient.post<OperationResponse>('/products/batch/update-pricing', { 
       product_ids: productIds,
       ...priceData
     });

@@ -1,15 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { apiClient } from '@/lib/api';
+import { AuthUser } from '@/types/api';
 
-interface User {
-  id: string; // Supabase uses UUID strings for user IDs
-  email: string;
-  first_name: string;
-  last_name: string;
-  is_admin: boolean;
-  created_at?: string;
-  last_login?: string;
-}
+type User = AuthUser;
 
 interface AuthState {
   user: User | null;
@@ -73,24 +66,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const response = await apiClient.getCurrentUser();
       setUser(response.user);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to refresh user:', error);
       
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
       // Clear any invalid tokens for various error types
-      if (error.message?.includes('401') || 
-          error.message?.includes('Unauthorized') || 
-          error.message?.includes('Authentication required') ||
-          error.message?.includes('SyntaxError') ||
-          error.message?.includes('string did not match') ||
+      if (errorMessage.includes('401') || 
+          errorMessage.includes('Unauthorized') || 
+          errorMessage.includes('Authentication required') ||
+          errorMessage.includes('SyntaxError') ||
+          errorMessage.includes('string did not match') ||
           error instanceof SyntaxError) {
-        console.log('Clearing invalid auth token due to error:', error.message);
+        console.log('Clearing invalid auth token due to error:', errorMessage);
         localStorage.removeItem('auth_token');
         apiClient.setAuthToken(null);
         setUser(null);
         clearError(); // Clear any existing errors
       } else {
         // For other errors, don't clear the token immediately
-        setError(error.message || 'Failed to refresh user');
+        setError(errorMessage || 'Failed to refresh user');
       }
     } finally {
       setLoading(false);
