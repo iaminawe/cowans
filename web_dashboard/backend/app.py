@@ -103,14 +103,12 @@ app = Flask(__name__)
 app.config.from_object(config[os.getenv('FLASK_ENV', 'development')])
 
 # Initialize CORS with broader support
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["http://localhost:3055", "http://localhost:3056", "http://localhost:3560"],
-        "supports_credentials": True,
-        "allow_headers": ["Content-Type", "Authorization"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    }
-})
+CORS(app, 
+     origins=["http://localhost:3055", "http://localhost:3056", "http://localhost:3560", "http://localhost:3000", "http://127.0.0.1:3000"],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+     expose_headers=["Authorization"])
 
 # Initialize JWT
 jwt = JWTManager(app)

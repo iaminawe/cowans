@@ -73,6 +73,14 @@ module.exports = (env, argv) => {
         directory: path.join(__dirname, 'public'),
         publicPath: '/',
       },
+      proxy: [
+        {
+          context: ['/api'],
+          target: 'http://localhost:3560',
+          changeOrigin: true,
+          secure: false,
+        }
+      ],
     },
   };
 };
