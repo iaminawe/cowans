@@ -92,13 +92,13 @@ mkdir -p /app/data/generated_icons /app/logs /app/icons\n\
 if [ "$FLASK_ENV" = "production" ]; then\n\
     echo "Starting in production mode with Gunicorn..."\n\
     exec gunicorn --bind 0.0.0.0:3560 \\\n\
-        --workers 4 \\\n\
+        --workers 2 \\\n\
         --worker-class gevent \\\n\
-        --worker-connections 1000 \\\n\
-        --timeout 120 \\\n\
-        --keep-alive 5 \\\n\
-        --max-requests 1000 \\\n\
-        --max-requests-jitter 100 \\\n\
+        --worker-connections 500 \\\n\
+        --timeout 60 \\\n\
+        --keep-alive 2 \\\n\
+        --max-requests 500 \\\n\
+        --max-requests-jitter 50 \\\n\
         --access-logfile - \\\n\
         --error-logfile - \\\n\
         --capture-output \\\n\
