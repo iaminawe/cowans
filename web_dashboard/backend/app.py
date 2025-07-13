@@ -262,53 +262,44 @@ def get_user_id():
 # Setup logging
 def setup_logging():
     """Configure application logging."""
-    if not os.path.exists(app.config['LOG_PATH']):
-        os.makedirs(app.config['LOG_PATH'])
+    try:
+        if not os.path.exists(app.config['LOG_PATH']):
+            os.makedirs(app.config['LOG_PATH'])
+        
+        file_handler = RotatingFileHandler(
+            os.path.join(app.config['LOG_PATH'], 'app.log'),
+            maxBytes=10240000,  # 10MB
+            backupCount=10
+        )
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+        app.logger.info('Backend startup - file logging configured')
+    except (PermissionError, OSError):
+        # File system is read-only - use console logging only
+        print("File system is read-only, using console logging only")
     
-    file_handler = RotatingFileHandler(
-        os.path.join(app.config['LOG_PATH'], 'app.log'),
-        maxBytes=10240000,  # 10MB
-        backupCount=10
-    )
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    ))
-    file_handler.setLevel(logging.INFO)
-    app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
-    app.logger.info('Backend startup')
 
 setup_logging()
 
-# Initialize database on startup with enhanced containerized environment support
+# Initialize database on startup
 try:
-    # Determine database type and environment
-    database_url = os.getenv('DATABASE_URL', '')
+    # Determine environment - only PostgreSQL/Supabase supported
     is_production = os.getenv('FLASK_ENV') == 'production'
-    is_supabase = 'supabase' in database_url or os.getenv('SUPABASE_URL')
-    is_sqlite = database_url.startswith('sqlite') or not database_url
     
-    app.logger.info(f"Database initialization: production={is_production}, supabase={is_supabase}, sqlite={is_sqlite}")
+    app.logger.info(f"Database initialization: production={is_production}")
     
-    # For containerized SQLite environments, always create tables if they don't exist
-    if is_sqlite and not is_production:
-        create_tables = True
-        app.logger.info("SQLite in development/container: enabling table creation")
-    elif is_sqlite and is_production:
-        # In production SQLite (containerized), create tables if database doesn't exist
-        import os.path
-        db_path = database_url.replace('sqlite:///', '')
-        create_tables = not os.path.exists(db_path)
-        app.logger.info(f"SQLite in production: database exists={os.path.exists(db_path)}, creating tables={create_tables}")
-    else:
-        # Supabase or other databases - assume tables exist in production
-        create_tables = not is_production
-        app.logger.info(f"Database type: {database_url.split('://')[0]}, creating tables={create_tables}")
+    # In development, allow table creation; in production, assume tables exist
+    create_tables = not is_production
+    app.logger.info(f"PostgreSQL database initialization: creating tables={create_tables}")
     
     init_database(create_tables=create_tables)
     
-    # Seed initial data for development or fresh SQLite databases
-    if create_tables or (not is_production and not is_supabase):
+    # Seed initial data for development
+    if create_tables:
         try:
             from database import DatabaseUtils
             DatabaseUtils.seed_initial_data()
