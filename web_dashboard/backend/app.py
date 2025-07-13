@@ -103,16 +103,24 @@ app = Flask(__name__)
 app.config.from_object(config[os.getenv('FLASK_ENV', 'development')])
 
 # Initialize CORS with specific configuration for credentials support
+# In Coolify deployment, frontend and backend are served from same origin
 CORS(app, 
      resources={
          r"/api/*": {
-             "origins": ["http://localhost:3055", "http://localhost:3056", "http://localhost:3560", "https://cowans.apps.iaminawe.net"],
+             "origins": [
+                 "http://localhost:3055", "http://localhost:3056", "http://localhost:3560", 
+                 "http://127.0.0.1:3055", "http://127.0.0.1:3056", "http://127.0.0.1:3560",
+                 "https://cowans.apps.iaminawe.net",
+                 "http://cowans.apps.iaminawe.net"  # For same-origin requests in Coolify
+             ],
              "supports_credentials": True,
-             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-             "expose_headers": ["Authorization"]
+             "expose_headers": ["Authorization"],
+             "send_wildcard": False
          }
-     })
+     },
+     supports_credentials=True)
 
 # Initialize JWT
 jwt = JWTManager(app)
@@ -1368,10 +1376,19 @@ def handle_preflight():
     if request.method == 'OPTIONS':
         # Build response for preflight
         response = jsonify({'status': 'ok'})
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        origin = request.headers.get('Origin')
+        allowed_origins = [
+            "http://localhost:3055", "http://localhost:3056", "http://localhost:3560", 
+            "http://127.0.0.1:3055", "http://127.0.0.1:3056", "http://127.0.0.1:3560",
+            "https://cowans.apps.iaminawe.net", "http://cowans.apps.iaminawe.net"
+        ]
+        
+        if origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+        
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
         response.headers['Access-Control-Max-Age'] = '3600'
         return response
     
@@ -1380,7 +1397,22 @@ def handle_preflight():
 
 @app.after_request
 def track_request_end(response):
-    """Track request completion and performance."""
+    """Track request completion and performance, and ensure CORS headers."""
+    # Ensure CORS headers are set for API requests
+    if request.path.startswith('/api/'):
+        origin = request.headers.get('Origin')
+        allowed_origins = [
+            "http://localhost:3055", "http://localhost:3056", "http://localhost:3560", 
+            "http://127.0.0.1:3055", "http://127.0.0.1:3056", "http://127.0.0.1:3560",
+            "https://cowans.apps.iaminawe.net", "http://cowans.apps.iaminawe.net"
+        ]
+        
+        if origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
+
     if hasattr(request, 'start_time'):
         duration = time.time() - request.start_time
         

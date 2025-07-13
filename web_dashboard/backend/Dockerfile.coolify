@@ -1,0 +1,81 @@
+# Multi-stage Dockerfile for Coolify deployment with unified frontend + backend
+FROM node:18-alpine AS frontend-builder
+
+# Build frontend
+WORKDIR /app/frontend
+COPY ./frontend/package*.json ./
+RUN npm ci --only=production
+COPY ./frontend ./
+RUN npm run build
+
+# Backend stage
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies including gunicorn
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY ./web_dashboard/backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install production-optimized gunicorn with sync workers (not gevent)
+RUN pip install --no-cache-dir gunicorn
+
+# Copy application code and use optimized app
+COPY ./web_dashboard/backend .
+# Use optimized app if it exists
+RUN if [ -f app_optimized.py ]; then mv app_optimized.py app.py; fi
+
+# Copy scripts directory
+COPY ./scripts /app/scripts
+
+# Copy frontend build from frontend-builder stage
+COPY --from=frontend-builder /app/frontend/build /app/frontend/build
+
+# Create a non-root user first
+RUN useradd -m -u 1000 appuser
+
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/data /app/data/generated_icons /app/icons /app/logs /app/backups && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Create optimized production entrypoint
+RUN echo '#!/bin/sh\n\
+# Ensure all required directories exist with proper permissions\n\
+mkdir -p /app/data/generated_icons /app/logs /app/icons\n\
+\n\
+# Production optimizations\n\
+export PYTHONOPTIMIZE=1\n\
+export PYTHONDONTWRITEBYTECODE=1\n\
+\n\
+# Get worker configuration from environment or use optimized defaults\n\
+WORKERS=${GUNICORN_WORKERS:-1}\n\
+WORKER_CONNECTIONS=${GUNICORN_WORKER_CONNECTIONS:-50}\n\
+THREADS=${GUNICORN_THREADS:-2}\n\
+\n\
+echo "Starting Gunicorn with $WORKERS workers, $THREADS threads, $WORKER_CONNECTIONS connections..."\n\
+echo "Frontend build available at: /app/frontend/build"\n\
+\n\
+# Run with configuration file for better control\n\
+exec gunicorn --config /app/gunicorn.conf.py app:app' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
+# Expose port
+EXPOSE 3560
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3560/health || exit 1
+
+# Set entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
