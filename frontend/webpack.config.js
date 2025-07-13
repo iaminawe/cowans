@@ -51,19 +51,19 @@ module.exports = (env, argv) => {
         },
       ],
     },
-  plugins: [
-    new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'public/index.html'),
-    }),
-    new webpack.DefinePlugin({
-      'process.env': {
-        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || '/api'),
-        'REACT_APP_WEBSOCKET_URL': JSON.stringify(process.env.REACT_APP_WEBSOCKET_URL || ''),
-        'REACT_APP_SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
-        'SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
-      },
-    }),
-  ],
+    plugins: [
+      new HtmlWebpackPlugin({
+        template: path.resolve(__dirname, 'public/index.html'),
+      }),
+      new webpack.DefinePlugin({
+        'process.env': {
+          'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || '/api'),
+          'REACT_APP_WEBSOCKET_URL': JSON.stringify(process.env.REACT_APP_WEBSOCKET_URL || ''),
+          'REACT_APP_SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
+          'SHOPIFY_SHOP_URL': JSON.stringify('e19833-4.myshopify.com'),
+        },
+      }),
+    ],
     devServer: {
       port: 3055,
       hot: true,

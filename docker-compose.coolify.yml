@@ -57,14 +57,14 @@ services:
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=3560"
-    # Resource limits for 2CPU/4GB server
+    # Resource limits for 2CPU/4GB server - optimized for operations
     deploy:
       resources:
         limits:
-          cpus: '0.8'
-          memory: 1G
+          cpus: '0.5'  # Less CPU for web (few users)
+          memory: 768M  # Less memory for web
         reservations:
-          cpus: '0.5'
+          cpus: '0.3'
           memory: 512M
 
   redis:
@@ -98,7 +98,7 @@ services:
     build:
       context: .
       dockerfile: ./web_dashboard/backend/Dockerfile.prod
-    command: celery -A celery_app worker --loglevel=info --concurrency=1 --max-tasks-per-child=100
+    command: celery -A celery_app worker --loglevel=info --concurrency=4 --max-tasks-per-child=100 -Q sync,generation,batch,import,download,processing,upload,maintenance
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres.gqozcvqgsjaagnnjukmo:fotMat-gomqih-8cybne@aws-0-us-west-1.pooler.supabase.com:6543/postgres}
       - SUPABASE_URL=${SUPABASE_URL}
@@ -125,15 +125,15 @@ services:
     labels:
       - "coolify.managed=true"
       - "coolify.type=worker"
-    # Resource limits
+    # Resource limits - optimized for heavy operations
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 768M
+          cpus: '1.2'  # More CPU for operations
+          memory: 2G    # More memory for operations
         reservations:
-          cpus: '0.3'
-          memory: 512M
+          cpus: '0.8'
+          memory: 1G
 
 volumes:
   backend-data:

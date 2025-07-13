@@ -6,14 +6,19 @@ import os
 bind = "0.0.0.0:3560"
 backlog = 2048
 
-# Worker processes
+# Worker processes - optimized for 2CPU/4GB server
 workers = int(os.environ.get('GUNICORN_WORKERS', '1'))
 worker_class = 'sync'  # Use sync workers instead of gevent to reduce CPU usage
-worker_connections = int(os.environ.get('GUNICORN_WORKER_CONNECTIONS', '50'))
+worker_connections = int(os.environ.get('GUNICORN_WORKER_CONNECTIONS', '25'))  # Reduced from 50
 threads = int(os.environ.get('GUNICORN_THREADS', '2'))
-max_requests = 1000  # Restart workers after this many requests to prevent memory leaks
+max_requests = 500  # Restart workers more frequently to prevent memory buildup
 max_requests_jitter = 50
 keepalive = 2
+
+# Limit request sizes to prevent abuse
+limit_request_line = 4096
+limit_request_fields = 100
+limit_request_field_size = 8190
 
 # Timeout
 timeout = 60

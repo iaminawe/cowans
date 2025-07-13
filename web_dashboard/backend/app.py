@@ -52,7 +52,7 @@ from tasks import generate_icon_batch_task
 from shopify_collections import ShopifyCollectionsManager
 
 # Import database and repositories
-from database import db_manager, init_database, db_session_scope
+from database_operations import db_manager, init_database, db_session_scope
 from repositories import (
     UserRepository, ProductRepository, CategoryRepository,
     IconRepository, JobRepository, SyncHistoryRepository
@@ -398,6 +398,23 @@ def liveness_check():
     }), 200
 
 # Supabase test endpoint
+@app.route("/health/pool", methods=["GET"])
+def pool_status():
+    """Get database connection pool status."""
+    try:
+        status = db_manager.get_pool_status()
+        return jsonify({
+            "status": "success",
+            "pool": status,
+            "timestamp": time.time()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }), 500
+
 @app.route("/health/supabase", methods=["GET"])
 def supabase_test():
     """Test Supabase SDK functionality."""

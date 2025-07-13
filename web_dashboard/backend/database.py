@@ -108,10 +108,10 @@ class DatabaseManager:
             self.engine = create_engine(
                 self.database_url,
                 echo=False,
-                pool_size=10,
-                max_overflow=20,
+                pool_size=2,      # Reduced from 10 to 2 for small server
+                max_overflow=1,   # Reduced from 20 to 1
                 pool_pre_ping=True,
-                pool_recycle=3600,  # Recycle connections after 1 hour
+                pool_recycle=300,  # Recycle connections after 5 minutes instead of 1 hour
             )
             
             # Create session factory
