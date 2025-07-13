@@ -27,7 +27,7 @@ export interface OperationResponse {
 
 // Auth Response Types
 export interface AuthUser {
-  id: number;
+  id: string; // Supabase uses UUID strings for user IDs
   email: string;
   first_name: string;
   last_name: string;

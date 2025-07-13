@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { apiClient } from '@/lib/api';
 
 interface User {
-  id: number;
+  id: string; // Supabase uses UUID strings for user IDs
   email: string;
   first_name: string;
   last_name: string;
