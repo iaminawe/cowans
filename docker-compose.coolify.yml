@@ -11,6 +11,8 @@ services:
     environment:
       - FLASK_ENV=production
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres.gqozcvqgsjaagnnjukmo:fotMat-gomqih-8cybne@aws-0-us-west-1.pooler.supabase.com:6543/postgres}
+      # Set INIT_DATABASE=true only for first deployment to create tables and seed data
+      # - INIT_DATABASE=true
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}

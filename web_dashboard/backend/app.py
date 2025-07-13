@@ -295,41 +295,45 @@ def setup_logging():
 
 setup_logging()
 
-# Initialize database on startup
+# Initialize database connection (but don't create tables on every startup)
 try:
-    # Determine environment - only PostgreSQL/Supabase supported
-    is_production = os.getenv('FLASK_ENV') == 'production'
+    # Initialize database connection only - tables should already exist in production
+    app.logger.info("Initializing database connection...")
+    init_database(create_tables=False)
     
-    app.logger.info(f"Database initialization: production={is_production}")
-    
-    # In development, allow table creation; in production, assume tables exist
-    create_tables = not is_production
-    app.logger.info(f"PostgreSQL database initialization: creating tables={create_tables}")
-    
-    init_database(create_tables=create_tables)
-    
-    # Seed initial data for development
-    if create_tables:
-        try:
-            from database import DatabaseUtils
-            DatabaseUtils.seed_initial_data()
-            app.logger.info("Initial data seeded successfully")
-        except Exception as seed_error:
-            app.logger.warning(f"Failed to seed initial data: {seed_error}")
+    # Only initialize tables and seed if explicitly requested via environment variable
+    # This prevents repeated seeding on every container restart
+    if os.getenv('INIT_DATABASE', '').lower() in ('true', '1', 'yes'):
+        app.logger.info("INIT_DATABASE flag detected - initializing tables and seeding data")
+        
+        # Determine environment
+        is_production = os.getenv('FLASK_ENV') == 'production'
+        create_tables = not is_production
+        
+        init_database(create_tables=create_tables)
+        
+        # Seed initial data for development only
+        if not is_production:
+            try:
+                from database import DatabaseUtils
+                DatabaseUtils.seed_initial_data()
+                app.logger.info("Initial data seeded successfully")
+            except Exception as seed_error:
+                app.logger.warning(f"Failed to seed initial data: {seed_error}")
     
     # Verify database health
     from database import database_health_check
     health = database_health_check()
     if health.get('status') == 'healthy':
-        app.logger.info("Database health check passed")
+        app.logger.info("Database connection healthy")
     else:
-        app.logger.error(f"Database health check failed: {health}")
+        app.logger.warning(f"Database health check: {health}")
         
 except Exception as e:
-    app.logger.error(f"Failed to initialize database: {e}")
-    # In containerized environments, this should be fatal
+    app.logger.error(f"Failed to initialize database connection: {e}")
+    # In production, this should be fatal as the app can't function without a database
     if os.getenv('FLASK_ENV') == 'production':
-        app.logger.critical("Database initialization failed in production - exiting")
+        app.logger.critical("Database connection failed in production - exiting")
         import sys
         sys.exit(1)
     else:
