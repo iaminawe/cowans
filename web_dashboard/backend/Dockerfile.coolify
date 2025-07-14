@@ -6,24 +6,17 @@ WORKDIR /app/frontend
 COPY ./frontend/package*.json ./
 RUN npm ci  # Install all dependencies (including devDependencies needed for build)
 
-# Copy frontend source and config files
-COPY ./frontend ./temp_frontend
+# Copy frontend source directly - no temp directory needed
+COPY ./frontend/src ./src
+COPY ./frontend/public ./public
+COPY ./frontend/tsconfig.json ./
+COPY ./frontend/webpack.config.js ./
+COPY ./frontend/postcss.config.js ./
+COPY ./frontend/tailwind.config.js ./
+COPY ./frontend/components.json ./
 
-# Debug: List what was copied
-RUN ls -la ./temp_frontend/
-
-# Copy files conditionally
-RUN (cp -r ./temp_frontend/src ./src || echo "src directory not found") && \
-    (cp -r ./temp_frontend/public ./public || echo "public directory not found") && \
-    (cp ./temp_frontend/tsconfig.json ./ || echo "tsconfig.json not found") && \
-    (cp ./temp_frontend/webpack.config.js ./ || echo "webpack.config.js not found") && \
-    (cp ./temp_frontend/postcss.config.js ./ || echo "postcss.config.js not found") && \
-    (cp ./temp_frontend/tailwind.config.js ./ || echo "tailwind.config.js not found") && \
-    (cp ./temp_frontend/components.json ./ || echo "components.json not found") && \
-    rm -rf ./temp_frontend
-
-# Debug: List files to verify copy worked
-RUN ls -la . && (ls -la src/ || echo "src not found") && (ls -la public/ || echo "public not found")
+# Debug: Verify all files are in place
+RUN ls -la . && ls -la src/ && ls -la public/ && ls -la src/lib/
 
 # Create public/index.html if it doesn't exist
 RUN if [ ! -d "public" ]; then mkdir -p public; fi && \
