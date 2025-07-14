@@ -19,6 +19,8 @@ RUN --mount=type=cache,target=/root/.npm \
 
 # Copy source and build (separate layer for better caching)
 COPY ./frontend ./
+# Ensure correct working directory for build
+WORKDIR /app/frontend
 # Build with TypeScript transpileOnly for faster builds (skip type checking)
 ENV SKIP_TYPE_CHECK=true
 RUN npm run build

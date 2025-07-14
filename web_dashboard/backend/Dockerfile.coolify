@@ -6,6 +6,8 @@ WORKDIR /app/frontend
 COPY ./frontend/package*.json ./
 RUN npm ci  # Install all dependencies (including devDependencies needed for build)
 COPY ./frontend ./
+# Ensure correct working directory for build
+WORKDIR /app/frontend
 # Skip TypeScript type checking in production builds for faster compilation
 ENV SKIP_TYPE_CHECK=true
 RUN npm run build
