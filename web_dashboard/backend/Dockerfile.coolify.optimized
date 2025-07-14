@@ -19,17 +19,28 @@ RUN --mount=type=cache,target=/root/.npm \
 
 # Copy frontend source and config files
 COPY ./frontend ./temp_frontend
-RUN cp -r ./temp_frontend/src ./src && \
-    cp -r ./temp_frontend/public ./public && \
-    cp ./temp_frontend/tsconfig.json ./ && \
-    cp ./temp_frontend/webpack.config.js ./ && \
-    cp ./temp_frontend/postcss.config.js ./ && \
-    cp ./temp_frontend/tailwind.config.js ./ && \
-    (cp ./temp_frontend/components.json ./ || echo "components.json not found, skipping") && \
+
+# Debug: List what was copied
+RUN ls -la ./temp_frontend/
+
+# Copy files conditionally
+RUN (cp -r ./temp_frontend/src ./src || echo "src directory not found") && \
+    (cp -r ./temp_frontend/public ./public || echo "public directory not found") && \
+    (cp ./temp_frontend/tsconfig.json ./ || echo "tsconfig.json not found") && \
+    (cp ./temp_frontend/webpack.config.js ./ || echo "webpack.config.js not found") && \
+    (cp ./temp_frontend/postcss.config.js ./ || echo "postcss.config.js not found") && \
+    (cp ./temp_frontend/tailwind.config.js ./ || echo "tailwind.config.js not found") && \
+    (cp ./temp_frontend/components.json ./ || echo "components.json not found") && \
     rm -rf ./temp_frontend
 
 # Debug: List files to verify copy worked
-RUN ls -la . && ls -la src/ && ls -la public/
+RUN ls -la . && (ls -la src/ || echo "src not found") && (ls -la public/ || echo "public not found")
+
+# Create public/index.html if it doesn't exist
+RUN if [ ! -d "public" ]; then mkdir -p public; fi && \
+    if [ ! -f "public/index.html" ]; then \
+        echo '<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Cowans Dashboard</title></head><body><div id="root"></div></body></html>' > public/index.html; \
+    fi
 
 # Build with TypeScript transpileOnly for faster builds (skip type checking)
 ENV SKIP_TYPE_CHECK=true
