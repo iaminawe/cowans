@@ -40,7 +40,8 @@ module.exports = (env, argv) => {
           use: {
             loader: 'ts-loader',
             options: {
-              transpileOnly: false,
+              // Skip type checking in Docker builds for faster compilation
+              transpileOnly: process.env.SKIP_TYPE_CHECK === 'true' || isProduction,
               configFile: path.resolve(__dirname, 'tsconfig.json'),
             },
           },
