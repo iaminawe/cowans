@@ -25,8 +25,8 @@ COPY ./frontend/webpack.config.js ./
 COPY ./frontend/postcss.config.js ./
 COPY ./frontend/tailwind.config.js ./
 
-# Copy components.json if it exists (create empty one if not)
-COPY ./frontend/components.json ./components.json
+# Create components.json if it doesn't exist in the build context
+RUN echo '{"$schema": "https://ui.shadcn.com/schema.json","style": "default","rsc": false,"tsx": true,"tailwind": {"config": "tailwind.config.js","css": "src/styles/globals.css","baseColor": "slate","cssVariables": true,"prefix": ""},"aliases": {"components": "@/components","utils": "@/lib/utils","ui": "@/components/ui"},"iconLibrary": "lucide"}' > components.json
 
 # Debug: List all available files in frontend context
 RUN echo "=== Files in current directory ===" && ls -la . && \
