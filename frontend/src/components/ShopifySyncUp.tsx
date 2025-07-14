@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { apiClient } from '@/lib/api';
+import { OutgoingWebSocketMessage } from '@/types/websocket';
 
 interface ShopifySyncUpProps {
   onSyncComplete?: () => void;
@@ -118,7 +119,7 @@ export function ShopifySyncUp({ onSyncComplete, className }: ShopifySyncUpProps)
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { subscribe, sendMessage, isConnected } = useWebSocket();
+  const { subscribe, subscribeCustom, sendMessage, isConnected } = useWebSocket();
 
   useEffect(() => {
     loadApprovedProducts();
@@ -127,12 +128,12 @@ export function ShopifySyncUp({ onSyncComplete, className }: ShopifySyncUpProps)
   useEffect(() => {
     if (!isConnected || !isRunning) return;
 
-    const unsubscribeBatch = subscribe('shopify-sync-up-batch', (data) => {
+    const unsubscribeBatch = subscribeCustom('shopify-sync-up-batch', (data: any) => {
       setCurrentBatch(data.batch);
       setSyncMetrics(data.metrics);
     });
 
-    const unsubscribeBatchComplete = subscribe('shopify-sync-up-batch-complete', (data) => {
+    const unsubscribeBatchComplete = subscribeCustom('shopify-sync-up-batch-complete', (data: any) => {
       setCompletedBatches(prev => [...prev, data.batch]);
       
       if (data.isLastBatch) {
@@ -140,7 +141,7 @@ export function ShopifySyncUp({ onSyncComplete, className }: ShopifySyncUpProps)
       }
     });
 
-    const unsubscribeError = subscribe('shopify-sync-up-error', (data) => {
+    const unsubscribeError = subscribeCustom('shopify-sync-up-error', (data: any) => {
       setError(data.message);
       setIsRunning(false);
     });
@@ -214,7 +215,7 @@ export function ShopifySyncUp({ onSyncComplete, className }: ShopifySyncUpProps)
         sendMessage({
           type: 'monitor-sync-up',
           syncId: response.sync_id
-        });
+        } as OutgoingWebSocketMessage);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start sync');
@@ -225,21 +226,21 @@ export function ShopifySyncUp({ onSyncComplete, className }: ShopifySyncUpProps)
   const handlePauseSync = () => {
     sendMessage({
       type: 'pause-sync-up'
-    });
+    } as OutgoingWebSocketMessage);
     setIsPaused(true);
   };
 
   const handleResumeSync = () => {
     sendMessage({
       type: 'resume-sync-up'
-    });
+    } as OutgoingWebSocketMessage);
     setIsPaused(false);
   };
 
   const handleCancelSync = () => {
     sendMessage({
       type: 'cancel-sync-up'
-    });
+    } as OutgoingWebSocketMessage);
     setIsRunning(false);
     setIsPaused(false);
   };

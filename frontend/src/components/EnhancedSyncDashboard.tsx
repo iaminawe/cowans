@@ -66,7 +66,7 @@ export function EnhancedSyncDashboard({ className }: EnhancedSyncDashboardProps)
     approvedChanges: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const { subscribe, isConnected } = useWebSocket();
+  const { subscribeCustom, isConnected } = useWebSocket();
 
   useEffect(() => {
     loadSyncMetrics();
@@ -76,19 +76,23 @@ export function EnhancedSyncDashboard({ className }: EnhancedSyncDashboardProps)
   useEffect(() => {
     if (!isConnected) return;
 
-    const unsubscribeSyncUpdate = subscribe('sync-update', (data) => {
-      if (data.source && data.status) {
+    const unsubscribeSyncUpdate = subscribeCustom('sync-update', (data) => {
+      // Type assertion for custom sync-update event data
+      const syncData = data as { source?: keyof SyncStatus; status?: SyncStatus[keyof SyncStatus] };
+      if (syncData.source && syncData.status) {
         setSyncStatus(prev => ({
           ...prev,
-          [data.source]: data.status
+          [syncData.source as keyof SyncStatus]: syncData.status as SyncStatus[keyof SyncStatus]
         }));
       }
     });
 
-    const unsubscribeMetricsUpdate = subscribe('metrics-update', (data) => {
+    const unsubscribeMetricsUpdate = subscribeCustom('metrics-update', (data) => {
+      // Type assertion for custom metrics-update event data
+      const metricsData = data as Partial<SyncMetrics>;
       setSyncMetrics(prev => ({
         ...prev,
-        ...data
+        ...metricsData
       }));
     });
 
@@ -96,7 +100,7 @@ export function EnhancedSyncDashboard({ className }: EnhancedSyncDashboardProps)
       unsubscribeSyncUpdate();
       unsubscribeMetricsUpdate();
     };
-  }, [subscribe, isConnected]);
+  }, [subscribeCustom, isConnected]);
 
   const loadSyncMetrics = async () => {
     try {

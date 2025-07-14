@@ -93,14 +93,13 @@ export function ProductsTable({
       setLoading(true);
       setError(null);
       
-      const params = {
-        limit: perPage,
-        offset: (page - 1) * perPage,
-        status: filterStatus !== 'all' ? filterStatus : undefined,
-        category: filterCategory !== 'all' ? filterCategory : undefined,
-        sort_by: sortBy,
-        sort_order: sortOrder
-      };
+      const params: Record<string, string> = {};
+      params.limit = perPage.toString();
+      params.offset = ((page - 1) * perPage).toString();
+      if (filterStatus !== 'all') params.status = filterStatus;
+      if (filterCategory !== 'all') params.category = filterCategory;
+      params.sort_by = sortBy;
+      params.sort_order = sortOrder;
       
       const data = await apiClient.get<PaginatedResponse<Product>>(`/products?${new URLSearchParams(params)}`);
       setProducts(data.data || []);
@@ -161,13 +160,13 @@ export function ProductsTable({
     try {
       switch (batchAction) {
         case 'update_status':
-          await updateProductsStatus(productIds, batchData.status);
+          await updateProductsStatus(productIds, batchData.status as string);
           break;
         case 'update_category':
-          await updateProductsCategory(productIds, batchData.categoryId);
+          await updateProductsCategory(productIds, batchData.categoryId as number);
           break;
         case 'add_to_collection':
-          await addProductsToCollection(productIds, batchData.collectionId);
+          await addProductsToCollection(productIds, batchData.collectionId as number);
           break;
         case 'sync_to_shopify':
           await syncProductsToShopify(productIds);
@@ -630,7 +629,7 @@ export function ProductsTable({
               <div>
                 <Label>New Status</Label>
                 <Select
-                  value={batchData.status || ''}
+                  value={(batchData.status as string) || ''}
                   onValueChange={(value) => setBatchData({ ...batchData, status: value })}
                 >
                   <SelectTrigger>
@@ -650,7 +649,7 @@ export function ProductsTable({
                 <div>
                   <Label>Price Adjustment Type</Label>
                   <Select
-                    value={batchData.adjustmentType || ''}
+                    value={(batchData.adjustmentType as string) || ''}
                     onValueChange={(value) => setBatchData({ ...batchData, adjustmentType: value })}
                   >
                     <SelectTrigger>
@@ -669,7 +668,7 @@ export function ProductsTable({
                   <Label>Value</Label>
                   <Input
                     type="number"
-                    value={batchData.value || ''}
+                    value={(batchData.value as string) || ''}
                     onChange={(e) => setBatchData({ ...batchData, value: e.target.value })}
                     placeholder="Enter value"
                   />

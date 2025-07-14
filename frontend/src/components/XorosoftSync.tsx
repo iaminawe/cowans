@@ -98,7 +98,7 @@ export function XorosoftSync({ className }: XorosoftSyncProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-  const { subscribe, sendMessage, isConnected: wsConnected } = useWebSocket();
+  const { subscribeCustom, sendMessage, isConnected: wsConnected } = useWebSocket();
 
   useEffect(() => {
     checkConnection();
@@ -109,7 +109,7 @@ export function XorosoftSync({ className }: XorosoftSyncProps) {
   useEffect(() => {
     if (!wsConnected) return;
 
-    const unsubscribeInventoryUpdate = subscribe('xorosoft-inventory-update', (data) => {
+    const unsubscribeInventoryUpdate = subscribeCustom('xorosoft-inventory-update', (data: any) => {
       setInventoryItems(prev => {
         const updated = [...prev];
         const index = updated.findIndex(item => item.sku === data.sku);
@@ -120,7 +120,7 @@ export function XorosoftSync({ className }: XorosoftSyncProps) {
       });
     });
 
-    const unsubscribeSyncProgress = subscribe('xorosoft-sync-progress', (data) => {
+    const unsubscribeSyncProgress = subscribeCustom('xorosoft-sync-progress', (data: any) => {
       if (data.completed) {
         setIsSyncing(false);
         setSyncResults(prev => [data.result, ...prev]);
@@ -129,8 +129,8 @@ export function XorosoftSync({ className }: XorosoftSyncProps) {
       }
     });
 
-    const unsubscribeStockMovement = subscribe('xorosoft-stock-movement', (data) => {
-      setStockMovements(prev => [data, ...prev.slice(0, 99)]);
+    const unsubscribeStockMovement = subscribeCustom('xorosoft-stock-movement', (data: any) => {
+      setStockMovements(prev => [data as StockMovement, ...prev.slice(0, 99)]);
     });
 
     return () => {
@@ -138,7 +138,7 @@ export function XorosoftSync({ className }: XorosoftSyncProps) {
       unsubscribeSyncProgress();
       unsubscribeStockMovement();
     };
-  }, [subscribe, wsConnected]);
+  }, [subscribeCustom, wsConnected]);
 
   const checkConnection = async () => {
     try {
@@ -249,7 +249,9 @@ export function XorosoftSync({ className }: XorosoftSyncProps) {
 
       sendMessage({
         type: 'monitor-xorosoft-sync',
-        syncId: response.sync_id
+        data: {
+          syncId: response.sync_id
+        }
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start sync');

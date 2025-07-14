@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { apiClient } from '@/lib/api';
+import { OutgoingWebSocketMessage } from '@/types/websocket';
 
 interface ShopifySyncDownProps {
   onSyncComplete?: () => void;
@@ -84,7 +85,7 @@ export function ShopifySyncDown({ onSyncComplete, className }: ShopifySyncDownPr
   const [error, setError] = useState<string | null>(null);
   const [collections, setCollections] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<string[]>([]);
-  const { subscribe, sendMessage, isConnected } = useWebSocket();
+  const { subscribe, subscribeCustom, sendMessage, isConnected } = useWebSocket();
 
   useEffect(() => {
     loadFilterOptions();
@@ -93,7 +94,7 @@ export function ShopifySyncDown({ onSyncComplete, className }: ShopifySyncDownPr
   useEffect(() => {
     if (!isConnected || !isRunning) return;
 
-    const unsubscribeProgress = subscribe('shopify-sync-down-progress', (data) => {
+    const unsubscribeProgress = subscribeCustom('shopify-sync-down-progress', (data: any) => {
       setProgress(data.progress);
       setStatus(data.status);
       
@@ -106,7 +107,7 @@ export function ShopifySyncDown({ onSyncComplete, className }: ShopifySyncDownPr
       }
     });
 
-    const unsubscribeError = subscribe('shopify-sync-down-error', (data) => {
+    const unsubscribeError = subscribeCustom('shopify-sync-down-error', (data: any) => {
       setError(data.message);
       setIsRunning(false);
     });
@@ -155,7 +156,7 @@ export function ShopifySyncDown({ onSyncComplete, className }: ShopifySyncDownPr
           sendMessage({
             type: 'monitor-sync',
             syncId: response.sync_id
-          });
+          } as OutgoingWebSocketMessage);
         } else {
           // Fallback: poll for status if WebSocket is not available
           console.log('WebSocket not connected, will poll for updates');
@@ -172,7 +173,7 @@ export function ShopifySyncDown({ onSyncComplete, className }: ShopifySyncDownPr
     sendMessage({
       type: 'cancel-sync',
       syncType: 'shopify-down'
-    });
+    } as OutgoingWebSocketMessage);
     setIsRunning(false);
   };
 

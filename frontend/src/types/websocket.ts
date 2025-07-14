@@ -8,13 +8,20 @@ export interface BaseWebSocketData {
 export interface LogData extends BaseWebSocketData {
   message: string;
   level: 'debug' | 'info' | 'warning' | 'error';
+  source?: string;
 }
 
 export interface ProgressData extends BaseWebSocketData {
-  percentage: number;
-  current: number;
-  total: number;
+  percentage?: number;
+  current?: number;
+  total?: number;
   message?: string;
+  progress_percentage?: number;
+  current_step?: number;
+  stages?: Array<{
+    name: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  }>;
 }
 
 export interface StatusData extends BaseWebSocketData {
@@ -32,6 +39,9 @@ export interface OperationStartData extends BaseWebSocketData {
   operation_type: string;
   operation_name: string;
   estimated_duration?: number;
+  type?: string;
+  description?: string;
+  total_steps?: number;
 }
 
 export interface OperationCompleteData extends BaseWebSocketData {
@@ -40,6 +50,7 @@ export interface OperationCompleteData extends BaseWebSocketData {
   duration: number;
   success: boolean;
   result?: unknown;
+  status?: string;
 }
 
 export interface SyncStatusData extends BaseWebSocketData {
@@ -139,4 +150,6 @@ export interface WebSocketEventMap {
   'operation_complete': OperationCompleteData;
   'sync_status': SyncStatusData;
   'import_status': ImportStatusData;
+  // Additional custom events
+  [key: string]: BaseWebSocketData;
 }

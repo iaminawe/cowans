@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { cn } from '@/lib/utils';
 import { CheckCircle, XCircle, Loader2, Info, AlertCircle } from 'lucide-react';
+import type { OperationStartData, ProgressData, LogData, OperationCompleteData } from '@/types/websocket';
 
 interface Operation {
   id: string;
@@ -43,11 +44,17 @@ export function OperationStatus({
 
   useEffect(() => {
     // Subscribe to operation events
-    const unsubscribeStart = subscribe('operation_start', (data) => {
+    const unsubscribeStart = subscribe('operation_start', (data: OperationStartData) => {
+      // Check if operation_id exists
+      if (!data.operation_id) {
+        console.warn('Operation start event missing operation_id');
+        return;
+      }
+      
       const operation: Operation = {
         id: data.operation_id,
-        type: data.type,
-        description: data.description,
+        type: data.type || data.operation_type || 'unknown',
+        description: data.description || data.operation_name || 'Operation',
         status: 'running',
         totalSteps: data.total_steps,
         currentStep: 0,
@@ -57,7 +64,7 @@ export function OperationStatus({
       
       setOperations(prev => {
         const updated = new Map(prev);
-        updated.set(data.operation_id, operation);
+        updated.set(data.operation_id!, operation);
         return updated;
       });
       
@@ -66,16 +73,24 @@ export function OperationStatus({
       }
     });
 
-    const unsubscribeProgress = subscribe('operation_progress', (data) => {
+    const unsubscribeProgress = subscribe('operation_progress', (data: ProgressData) => {
+      // Check if operation_id exists
+      if (!data.operation_id) {
+        console.warn('Operation progress event missing operation_id');
+        return;
+      }
+      
       setOperations(prev => {
         const updated = new Map(prev);
-        const operation = updated.get(data.operation_id);
+        const operation = updated.get(data.operation_id!);
         
         if (operation) {
           operation.currentStep = data.current_step;
           operation.message = data.message;
           if (data.progress_percentage !== undefined) {
             operation.progress = data.progress_percentage;
+          } else if (data.percentage !== undefined) {
+            operation.progress = data.percentage;
           }
         }
         
@@ -83,14 +98,20 @@ export function OperationStatus({
       });
     });
 
-    const unsubscribeLog = subscribe('operation_log', (data) => {
+    const unsubscribeLog = subscribe('operation_log', (data: LogData) => {
+      // Check if operation_id exists
+      if (!data.operation_id) {
+        console.warn('Operation log event missing operation_id');
+        return;
+      }
+      
       setOperations(prev => {
         const updated = new Map(prev);
-        const operation = updated.get(data.operation_id);
+        const operation = updated.get(data.operation_id!);
         
         if (operation) {
           operation.logs.push({
-            timestamp: new Date().toISOString(),
+            timestamp: data.timestamp || new Date().toISOString(),
             level: data.level,
             message: data.message,
             source: data.source
@@ -101,13 +122,24 @@ export function OperationStatus({
       });
     });
 
-    const unsubscribeComplete = subscribe('operation_complete', (data) => {
+    const unsubscribeComplete = subscribe('operation_complete', (data: OperationCompleteData) => {
+      // Check if operation_id exists
+      if (!data.operation_id) {
+        console.warn('Operation complete event missing operation_id');
+        return;
+      }
+      
       setOperations(prev => {
         const updated = new Map(prev);
-        const operation = updated.get(data.operation_id);
+        const operation = updated.get(data.operation_id!);
         
         if (operation) {
-          operation.status = data.status;
+          // Map success boolean to status string
+          if (data.status) {
+            operation.status = data.status as Operation['status'];
+          } else if (data.success !== undefined) {
+            operation.status = data.success ? 'success' : 'error';
+          }
           operation.endTime = new Date().toISOString();
           operation.progress = 100;
         }

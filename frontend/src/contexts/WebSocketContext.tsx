@@ -114,6 +114,18 @@ export function WebSocketProvider({
         });
       });
 
+      // Listen for custom events (sync-update, metrics-update, etc.)
+      const customEventTypes = ['sync-update', 'metrics-update'];
+      customEventTypes.forEach(eventType => {
+        socket.on(eventType, (data: unknown) => {
+          // Notify custom event subscribers directly with the raw data
+          const subscribers = subscribersRef.current.get(eventType);
+          if (subscribers) {
+            subscribers.forEach(callback => callback(data as WebSocketData));
+          }
+        });
+      });
+
       socket.on('connect_error', (error) => {
         console.warn('Socket.IO connection error:', error.message || error);
         // Don't log full error object to avoid console spam

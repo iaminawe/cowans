@@ -111,7 +111,6 @@ export function AdminDashboard() {
     const unsubscribeLogs = subscribe('log', (data) => {
       setRealtimeLogs(prev => [...prev, {
         id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
         ...data
       }]);
     });

@@ -90,7 +90,7 @@ export function BatchProcessor() {
   useEffect(() => {
     // Subscribe to batch-related WebSocket events
     const unsubscribeOperationStart = subscribe('operation_start', (data) => {
-      if (data.type === 'batch_processing') {
+      if (data.operation_type === 'batch_processing') {
         loadBatches();
       }
     });
@@ -98,7 +98,7 @@ export function BatchProcessor() {
     const unsubscribeOperationProgress = subscribe('operation_progress', (data) => {
       setBatches(prev => prev.map(batch => 
         batch.batch_id === data.operation_id 
-          ? { ...batch, progress_percentage: data.progress_percentage || 0 }
+          ? { ...batch, progress_percentage: data.percentage || data.progress_percentage || 0 }
           : batch
       ));
     });

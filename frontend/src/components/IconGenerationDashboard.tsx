@@ -109,7 +109,7 @@ export function IconGenerationDashboard() {
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [stats, setStats] = useState<any>(null);
   
-  const { subscribe } = useWebSocket();
+  const { subscribeCustom } = useWebSocket();
   const { addNotification } = useNotifications();
 
   useEffect(() => {
@@ -117,15 +117,15 @@ export function IconGenerationDashboard() {
     loadCollections();
     
     // Subscribe to batch progress updates
-    const unsubscribe = subscribe('batch_progress', (data) => {
+    const unsubscribe = subscribeCustom('batch_progress', (data: any) => {
       updateBatchProgress(data.batch_id, data);
     });
     
     // Subscribe to bulk generation updates
-    const unsubscribeBulk = subscribe('bulk_generation_progress', (data) => {
-      setBulkProgress({ current: data.completed, total: data.total });
+    const unsubscribeBulk = subscribeCustom('bulk_generation_progress', (data: any) => {
+      setBulkProgress({ current: data.completed || 0, total: data.total || 0 });
       if (data.status === 'completed') {
-        handleBulkGenerationComplete(data.results);
+        handleBulkGenerationComplete(data.results as BulkGenerationResult);
       }
     });
     
@@ -133,7 +133,7 @@ export function IconGenerationDashboard() {
       unsubscribe();
       unsubscribeBulk();
     };
-  }, [subscribe]);
+  }, [subscribeCustom]);
 
   const loadInitialData = async () => {
     try {

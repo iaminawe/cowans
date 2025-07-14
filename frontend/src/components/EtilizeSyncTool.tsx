@@ -152,7 +152,7 @@ export function EtilizeSyncTool({ className }: EtilizeSyncToolProps) {
     });
 
     const unsubscribeNewFile = subscribeCustom('etilize-new-file', (data) => {
-      const fileData = data as Record<string, unknown>;
+      const fileData = data as unknown as Record<string, unknown>;
       if (importConfig.notifyOnNew) {
         setSuccess(`New file detected: ${fileData.filename}`);
       }
@@ -164,7 +164,7 @@ export function EtilizeSyncTool({ className }: EtilizeSyncToolProps) {
     });
 
     const unsubscribeImportProgress = subscribeCustom('etilize-import-progress', (data) => {
-      const progressData = data as Record<string, unknown>;
+      const progressData = data as unknown as Record<string, unknown>;
       const adaptedJob = adaptImportJob(progressData.job);
       setCurrentJob(adaptedJob);
       
