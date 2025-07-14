@@ -17,17 +17,22 @@ COPY ./frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
-# Copy frontend source directly - no temp directory needed
+# Copy frontend source directly - with explicit file checking
 COPY ./frontend/src ./src
 COPY ./frontend/public ./public
 COPY ./frontend/tsconfig.json ./
 COPY ./frontend/webpack.config.js ./
 COPY ./frontend/postcss.config.js ./
 COPY ./frontend/tailwind.config.js ./
-COPY ./frontend/components.json ./
 
-# Debug: Verify all files are in place
-RUN ls -la . && ls -la src/ && ls -la public/ && ls -la src/lib/
+# Copy components.json if it exists (create empty one if not)
+COPY ./frontend/components.json ./components.json
+
+# Debug: List all available files in frontend context
+RUN echo "=== Files in current directory ===" && ls -la . && \
+    echo "=== Files in src directory ===" && ls -la src/ && \
+    echo "=== Files in public directory ===" && ls -la public/ && \
+    echo "=== Files in src/lib directory ===" && ls -la src/lib/
 
 # Create public/index.html if it doesn't exist
 RUN if [ ! -d "public" ]; then mkdir -p public; fi && \
