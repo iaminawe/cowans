@@ -26,9 +26,13 @@ RUN if [ -d "/frontend" ]; then \
         echo "Creating minimal frontend structure..." && \
         mkdir -p src/lib src/components src/contexts src/types public && \
         echo '{"compilerOptions":{"target":"es5","lib":["dom","dom.iterable","esnext"],"allowJs":true,"skipLibCheck":true,"esModuleInterop":true,"allowSyntheticDefaultImports":true,"strict":true,"forceConsistentCasingInFileNames":true,"noFallthroughCasesInSwitch":true,"module":"esnext","moduleResolution":"node","resolveJsonModule":true,"isolatedModules":true,"noEmit":false,"jsx":"react-jsx","baseUrl":"./","paths":{"@/*":["./src/*"],"@/lib/utils":["./src/lib/utils.ts"],"@/components/*":["./src/components/*"],"@/contexts/*":["./src/contexts/*"],"@/types/*":["./src/types/*"]}},"include":["src"]}' > tsconfig.json && \
-        echo 'export function cn(...inputs) { return inputs.filter(Boolean).join(" "); }' > src/lib/utils.ts && \
-        echo 'import React from "react"; export default function App() { return <div>Loading...</div>; }' > src/App.tsx && \
-        echo 'import React from "react"; import ReactDOM from "react-dom/client"; import App from "./App"; const root = ReactDOM.createRoot(document.getElementById("root")); root.render(<App />);' > src/index.tsx; \
+        echo 'export function cn(...inputs: any[]): string { return inputs.filter(Boolean).join(" "); }' > src/lib/utils.ts && \
+        echo 'import React from "react"; export default function App() { return React.createElement("div", null, "Loading..."); }' > src/App.tsx && \
+        echo 'import React from "react"; import { createRoot } from "react-dom/client"; import App from "./App"; const container = document.getElementById("root"); if (container) { const root = createRoot(container); root.render(React.createElement(App)); }' > src/index.tsx && \
+        echo '<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Cowans Dashboard</title></head><body><div id="root"></div></body></html>' > public/index.html && \
+        echo 'const path = require("path"); const HtmlWebpackPlugin = require("html-webpack-plugin"); module.exports = { mode: "production", entry: "./src/index.tsx", output: { path: path.resolve(__dirname, "build"), filename: "[name].[contenthash].js", publicPath: "/", clean: true }, resolve: { extensions: [".tsx", ".ts", ".js"], alias: { "@": path.resolve(__dirname, "src"), "@/lib/utils": path.resolve(__dirname, "src/lib/utils.ts"), "@/components": path.resolve(__dirname, "src/components"), "@/contexts": path.resolve(__dirname, "src/contexts"), "@/types": path.resolve(__dirname, "src/types") } }, module: { rules: [{ test: /\.(ts|tsx)$/, exclude: /node_modules/, use: { loader: "ts-loader", options: { transpileOnly: true } } }] }, plugins: [new HtmlWebpackPlugin({ template: path.resolve(__dirname, "public", "index.html"), filename: "index.html" })] };' > webpack.config.js && \
+        echo 'module.exports = {};' > postcss.config.js && \
+        echo 'module.exports = {};' > tailwind.config.js; \
     fi
 
 # Create components.json
