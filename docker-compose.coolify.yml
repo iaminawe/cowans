@@ -29,10 +29,10 @@ services:
       - FTP_USERNAME=${FTP_USERNAME}
       - FTP_PASSWORD=${FTP_PASSWORD}
       - PYTHONUNBUFFERED=1
-      # Performance tuning for small server
+      # Performance tuning for small server - reduced to prevent CPU spikes
       - GUNICORN_WORKERS=1
-      - GUNICORN_WORKER_CONNECTIONS=50
-      - GUNICORN_THREADS=2
+      - GUNICORN_WORKER_CONNECTIONS=25
+      - GUNICORN_THREADS=1
       - MEMORY_MONITOR_ENABLED=false
       # Build optimization environment variables
       - DOCKER_BUILDKIT=1
@@ -45,10 +45,10 @@ services:
       - "3560"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3560/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 60s
+      timeout: 15s
+      retries: 2
+      start_period: 60s
     restart: unless-stopped
     labels:
       - "coolify.managed=true"

@@ -362,24 +362,32 @@ def health_check():
     
     overall_healthy = True
     
-    # Check Supabase database connection
+    # Quick health check - avoid expensive database operations
     try:
-        supabase_db = get_supabase_db()
-        db_health = supabase_db.health_check()
-        health_status["services"]["supabase"] = db_health["status"]
-        if db_health["status"] != "healthy":
-            overall_healthy = False
-    except Exception as e:
-        health_status["services"]["supabase"] = f"unhealthy: {str(e)}"
-        overall_healthy = False
-    
-    # Fallback: Check legacy database connection if Supabase fails
-    if not overall_healthy:
-        try:
-            with db_session_scope() as session:
-                from sqlalchemy import text
-                session.execute(text("SELECT 1"))
-            health_status["services"]["database_fallback"] = "healthy"
+        # Simple check without database queries to reduce CPU usage
+        health_status["services"]["app"] = "healthy"
+        health_status["services"]["flask"] = "healthy"
+        
+        # Only check database every 5th request to reduce load
+        import random
+        if random.randint(1, 5) == 1:
+            # Check Supabase database connection occasionally
+            try:
+                supabase_db = get_supabase_db()
+                db_health = supabase_db.health_check()
+                health_status["services"]["supabase"] = db_health["status"]
+                if db_health["status"] != "healthy":
+                    overall_healthy = False
+            except Exception as e:
+                health_status["services"]["supabase"] = f"unhealthy: {str(e)}"
+                overall_healthy = False
+                
+                # Fallback: Check legacy database connection if Supabase fails
+                try:
+                    with db_session_scope() as session:
+                        from sqlalchemy import text
+                        session.execute(text("SELECT 1"))
+                    health_status["services"]["database_fallback"] = "healthy"
             overall_healthy = True  # At least fallback works
         except Exception as e:
             health_status["services"]["database_fallback"] = f"unhealthy: {str(e)}"
