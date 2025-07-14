@@ -19,6 +19,10 @@ module.exports = (env, argv) => {
       extensions: ['.tsx', '.ts', '.js'],
       alias: {
         '@': path.resolve(__dirname, 'src'),
+        '@/lib/utils': path.resolve(__dirname, 'src/lib/utils.ts'),
+        '@/components': path.resolve(__dirname, 'src/components'),
+        '@/contexts': path.resolve(__dirname, 'src/contexts'),
+        '@/types': path.resolve(__dirname, 'src/types'),
       },
       plugins: [
         new TsconfigPathsPlugin({
@@ -53,7 +57,7 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        template: './public/index.html',
+        template: path.resolve(__dirname, 'public', 'index.html'),
         filename: 'index.html',
       }),
       new webpack.DefinePlugin({

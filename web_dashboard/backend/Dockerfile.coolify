@@ -5,9 +5,19 @@ FROM node:18-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY ./frontend/package*.json ./
 RUN npm ci  # Install all dependencies (including devDependencies needed for build)
-COPY ./frontend ./
-# Ensure correct working directory for build
-WORKDIR /app/frontend
+
+# Copy source files with proper structure
+COPY ./frontend/src ./src
+COPY ./frontend/public ./public
+COPY ./frontend/tsconfig.json ./tsconfig.json
+COPY ./frontend/webpack.config.js ./webpack.config.js
+COPY ./frontend/postcss.config.js ./postcss.config.js
+COPY ./frontend/tailwind.config.js ./tailwind.config.js
+COPY ./frontend/components.json ./components.json
+
+# Debug: List files to verify copy worked
+RUN ls -la . && ls -la src/ && ls -la public/
+
 # Skip TypeScript type checking in production builds for faster compilation
 ENV SKIP_TYPE_CHECK=true
 RUN npm run build
