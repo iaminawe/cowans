@@ -17,14 +17,16 @@ COPY ./frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
-# Copy source files with proper structure
-COPY ./frontend/src ./src
-COPY ./frontend/public ./public
-COPY ./frontend/tsconfig.json ./tsconfig.json
-COPY ./frontend/webpack.config.js ./webpack.config.js
-COPY ./frontend/postcss.config.js ./postcss.config.js
-COPY ./frontend/tailwind.config.js ./tailwind.config.js
-COPY ./frontend/components.json ./components.json
+# Copy frontend source and config files
+COPY ./frontend ./temp_frontend
+RUN cp -r ./temp_frontend/src ./src && \
+    cp -r ./temp_frontend/public ./public && \
+    cp ./temp_frontend/tsconfig.json ./ && \
+    cp ./temp_frontend/webpack.config.js ./ && \
+    cp ./temp_frontend/postcss.config.js ./ && \
+    cp ./temp_frontend/tailwind.config.js ./ && \
+    (cp ./temp_frontend/components.json ./ || echo "components.json not found, skipping") && \
+    rm -rf ./temp_frontend
 
 # Debug: List files to verify copy worked
 RUN ls -la . && ls -la src/ && ls -la public/
