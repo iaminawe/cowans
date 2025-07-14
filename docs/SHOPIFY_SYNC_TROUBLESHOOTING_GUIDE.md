@@ -25,7 +25,7 @@ python web_dashboard/backend/scripts/health_check.py
 
 # Check specific components
 python web_dashboard/backend/scripts/check_shopify_connection.py
-python web_dashboard/backend/scripts/check_database_status.py
+python scripts/database/check_database_status.py
 python web_dashboard/backend/scripts/check_websocket_status.py
 ```
 
