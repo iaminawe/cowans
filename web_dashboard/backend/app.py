@@ -388,18 +388,22 @@ def health_check():
                         from sqlalchemy import text
                         session.execute(text("SELECT 1"))
                     health_status["services"]["database_fallback"] = "healthy"
-            overall_healthy = True  # At least fallback works
+                    overall_healthy = True  # At least fallback works
+                except Exception as e:
+                    health_status["services"]["database_fallback"] = f"unhealthy: {str(e)}"
+        
+        # Check Redis connection if available
+        try:
+            if redis_client and redis_client.ping():
+                health_status["services"]["redis"] = "healthy"
+            else:
+                health_status["services"]["redis"] = "unavailable"
         except Exception as e:
-            health_status["services"]["database_fallback"] = f"unhealthy: {str(e)}"
-    
-    # Check Redis connection if available
-    try:
-        if redis_client and redis_client.ping():
-            health_status["services"]["redis"] = "healthy"
-        else:
-            health_status["services"]["redis"] = "unavailable"
+            health_status["services"]["redis"] = f"unavailable: {str(e)}"
     except Exception as e:
-        health_status["services"]["redis"] = f"unavailable: {str(e)}"
+        # Catch any unexpected errors in health check
+        health_status["error"] = f"Health check error: {str(e)}"
+        overall_healthy = False
     
     # Basic app health (always healthy if we can respond)
     health_status["services"]["app"] = "healthy"
